@@ -11,7 +11,7 @@ type EventService struct {
 	repo *repositories.EventRepository
 }
 
-func newEventService(repo *repositories.EventRepository) *EventService {
+func NewEventService(repo *repositories.EventRepository) *EventService {
 	return &EventService{repo: repo}
 
 }
@@ -45,6 +45,10 @@ func (s *EventService) GetAllEvents() ([]models.Event, error) {
 
 func (s *EventService) GetEventByID(id uint) (*models.Event, error) {
 	return s.repo.FindByID(id)
+}
+
+func (s *EventService) UpdateEvent(event *models.Event) error {
+	return s.repo.Update(event)
 }
 
 func (s *EventService) DeleteEvent(id uint) error {

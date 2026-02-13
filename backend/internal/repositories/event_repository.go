@@ -26,6 +26,9 @@ func (r *EventRepository) FindAll() ([]models.Event, error) {
 func (r *EventRepository) FindByID(id uint) (*models.Event, error) {
 	var event models.Event
 	err := r.DB.First(&event, id).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, err
+	}
 	return &event, err
 }
 

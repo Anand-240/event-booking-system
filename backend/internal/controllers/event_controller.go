@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"event-booking-backend/internal/models"
 	"event-booking-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
