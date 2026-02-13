@@ -28,3 +28,13 @@ func (r *BookingRepository) FindByUserID(userID uint) ([]models.Booking, error) 
 
 	return bookings, err
 }
+
+func (r *BookingRepository) FindByID(tx *gorm.DB, id uint) (*models.Booking, error) {
+	var booking models.Booking
+	err := tx.First(&booking, id).Error
+	return &booking, err
+}
+
+func (r *BookingRepository) Delete(tx *gorm.DB, booking *models.Booking) error {
+	return tx.Delete(booking).Error
+}

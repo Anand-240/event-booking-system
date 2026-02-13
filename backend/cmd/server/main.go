@@ -53,6 +53,7 @@ func main() {
 		protected.DELETE("/:id", eventController.DeleteEvent)
 		protected.POST("/:id/book", bookingController.BookEvent)
 		protected.GET("/my-bookings", bookingController.MyBookings)
+		protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
 	}
 
 	r.Run(":8080")

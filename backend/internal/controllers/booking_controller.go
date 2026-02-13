@@ -60,3 +60,29 @@ func (c *BookingController) MyBookings(ctx *gin.Context) {
 
 	ctx.JSON(200, bookings)
 }
+
+func (c *BookingController) CancelBooking(ctx *gin.Context) {
+
+	userIDRaw, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	userID := uint(userIDRaw.(float64))
+
+	bookingIDParam := ctx.Param("bookingID")
+	bookingIDInt, err := strconv.Atoi(bookingIDParam)
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": "invalid booking id"})
+		return
+	}
+
+	err = c.service.CancelBooking(userID, uint(bookingIDInt))
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"message": "booking cancelled successfully"})
+}
