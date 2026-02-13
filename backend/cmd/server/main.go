@@ -2,6 +2,7 @@ package main
 
 import (
 	"event-booking-backend/internal/controllers"
+	"event-booking-backend/internal/middlewares"
 	"event-booking-backend/internal/models"
 	"event-booking-backend/internal/repositories"
 	"event-booking-backend/internal/services"
@@ -18,21 +19,34 @@ func main() {
 		panic("failed to connect database")
 	}
 
-	db.AutoMigrate(&models.Event{})
+	db.AutoMigrate(
+		&models.Event{},
+		&models.User{},
+	)
 
 	r := gin.Default()
 
 	eventRepo := repositories.NewEventRepository(db)
-	eventService := services.NewEventService(eventRepo)
-	eventController := controllers.NewEventController(eventService)
+	userRepo := repositories.NewUserRepository(db)
 
-	eventRoutes := r.Group("/events")
+	eventService := services.NewEventService(eventRepo)
+	authService := services.NewAuthService(userRepo, "SUPER_SECRET_KEY")
+
+	eventController := controllers.NewEventController(eventService)
+	authController := controllers.NewAuthController(authService)
+
+	r.POST("/signup", authController.Signup)
+	r.POST("/login", authController.Login)
+
+	r.GET("/events/", eventController.GetAllEvents)
+	r.GET("/events/:id", eventController.GetEventByID)
+
+	protected := r.Group("/events")
+	protected.Use(middlewares.AuthMiddleware("SUPER_SECRET_KEY"))
 	{
-		eventRoutes.POST("/", eventController.CreateEvent)
-		eventRoutes.GET("/", eventController.GetAllEvents)
-		eventRoutes.GET("/:id", eventController.GetEventByID)
-		eventRoutes.PUT("/:id", eventController.UpdateEvent)
-		eventRoutes.DELETE("/:id", eventController.DeleteEvent)
+		protected.POST("/", eventController.CreateEvent)
+		protected.PUT("/:id", eventController.UpdateEvent)
+		protected.DELETE("/:id", eventController.DeleteEvent)
 	}
 
 	r.Run(":8080")
