@@ -41,3 +41,22 @@ func (c *BookingController) BookEvent(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "event booked successfully"})
 }
+
+func (c *BookingController) MyBookings(ctx *gin.Context) {
+
+	userIDRaw, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	userID := uint(userIDRaw.(float64))
+
+	bookings, err := c.service.GetUserBookings(userID)
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": "failed to fetch bookings"})
+		return
+	}
+
+	ctx.JSON(200, bookings)
+}

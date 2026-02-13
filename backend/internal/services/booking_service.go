@@ -53,3 +53,7 @@ func (s *BookingService) BookEvent(userID, eventID uint) error {
 		return s.bookingRepo.Create(tx, booking)
 	})
 }
+
+func (s *BookingService) GetUserBookings(userID uint) ([]models.Booking, error) {
+	return s.bookingRepo.FindByUserID(userID)
+}
