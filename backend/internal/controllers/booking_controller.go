@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"net/http"
 	"strconv"
 
 	"event-booking-backend/internal/services"
@@ -20,7 +19,7 @@ func (c *BookingController) BookEvent(ctx *gin.Context) {
 
 	userIDRaw, exists := ctx.Get("userID")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		ctx.JSON(401, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -29,17 +28,26 @@ func (c *BookingController) BookEvent(ctx *gin.Context) {
 	eventIDParam := ctx.Param("id")
 	eventIDInt, err := strconv.Atoi(eventIDParam)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid event id"})
+		ctx.JSON(400, gin.H{"error": "invalid event id"})
 		return
 	}
 
-	err = c.service.BookEvent(userID, uint(eventIDInt))
+	var body struct {
+		Quantity int `json:"quantity"`
+	}
+
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.JSON(400, gin.H{"error": "invalid input"})
+		return
+	}
+
+	err = c.service.BookEvent(userID, uint(eventIDInt), body.Quantity)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "event booked successfully"})
+	ctx.JSON(200, gin.H{"message": "event booked successfully"})
 }
 
 func (c *BookingController) MyBookings(ctx *gin.Context) {

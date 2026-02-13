@@ -27,30 +27,36 @@ func NewBookingService(
 	}
 }
 
-func (s *BookingService) BookEvent(userID, eventID uint) error {
+func (s *BookingService) BookEvent(userID, eventID uint, quantity int) error {
+
+	if quantity <= 0 {
+		return errors.New("quantity must be greater than 0")
+	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 
 		var event models.Event
+
 		if err := tx.
 			Clauses(clause.Locking{Strength: "UPDATE"}).
 			First(&event, eventID).Error; err != nil {
 			return errors.New("event not found")
 		}
 
-		if event.AvailableSeats <= 0 {
-			return errors.New("no seats available")
+		if event.AvailableSeats < quantity {
+			return errors.New("not enough seats available")
 		}
 
-		event.AvailableSeats--
+		event.AvailableSeats -= quantity
 
 		if err := tx.Save(&event).Error; err != nil {
 			return err
 		}
 
 		booking := &models.Booking{
-			UserID:  userID,
-			EventID: eventID,
+			UserID:   userID,
+			EventID:  eventID,
+			Quantity: quantity,
 		}
 
 		return s.bookingRepo.Create(tx, booking)
@@ -79,7 +85,7 @@ func (s *BookingService) CancelBooking(userID, bookingID uint) error {
 			return errors.New("event not found")
 		}
 
-		event.AvailableSeats++
+		event.AvailableSeats += booking.Quantity
 
 		if err := tx.Save(event).Error; err != nil {
 			return err

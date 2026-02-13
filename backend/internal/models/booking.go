@@ -1,13 +1,14 @@
 package models
 
+import "time"
+
 type Booking struct {
-	BaseModel
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `json:"user_id"`
+	EventID   uint      `json:"event_id"`
+	Quantity  int       `json:"quantity"`
+	CreatedAt time.Time `json:"created_at"`
 
-	UserID  uint `json:"user_id"`
-	EventID uint `json:"event_id"`
-
-	Quantity int    `json:"quantity"`
-	Status   string `gorm:"default:confirmed" json:"status"`
-	User     User
-	Event    Event
+	User  User  `gorm:"foreignKey:UserID"`
+	Event Event `gorm:"foreignKey:EventID"`
 }
