@@ -6,6 +6,7 @@ import (
 	"event-booking-backend/internal/models"
 	"event-booking-backend/internal/repositories"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type BookingService struct {
@@ -30,8 +31,10 @@ func (s *BookingService) BookEvent(userID, eventID uint) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 
-		event, err := s.eventRepo.FindByID(eventID)
-		if err != nil {
+		var event models.Event
+		if err := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&event, eventID).Error; err != nil {
 			return errors.New("event not found")
 		}
 
@@ -41,7 +44,7 @@ func (s *BookingService) BookEvent(userID, eventID uint) error {
 
 		event.AvailableSeats--
 
-		if err := tx.Save(event).Error; err != nil {
+		if err := tx.Save(&event).Error; err != nil {
 			return err
 		}
 
