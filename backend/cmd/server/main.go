@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"time"
 )
 
 func main() {
@@ -51,7 +52,10 @@ func main() {
 	r.GET("/events/:id", eventController.GetEventByID)
 
 	protected := r.Group("/events")
-	protected.Use(middlewares.AuthMiddleware("SUPER_SECRET_KEY"))
+	protected.Use(
+		middlewares.AuthMiddleware("SUPER_SECRET_KEY"),
+		middlewares.RateLimitPerUser(5, time.Minute),
+	)
 	{
 		adminRoutes := protected.Group("/")
 		adminRoutes.Use(middlewares.AdminOnly())
