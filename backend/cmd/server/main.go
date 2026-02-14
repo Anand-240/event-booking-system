@@ -48,9 +48,14 @@ func main() {
 	protected := r.Group("/events")
 	protected.Use(middlewares.AuthMiddleware("SUPER_SECRET_KEY"))
 	{
-		protected.POST("/", eventController.CreateEvent)
-		protected.PUT("/:id", eventController.UpdateEvent)
-		protected.DELETE("/:id", eventController.DeleteEvent)
+		adminRoutes := protected.Group("/")
+		adminRoutes.Use(middlewares.AdminOnly())
+		{
+			adminRoutes.POST("/", eventController.CreateEvent)
+			adminRoutes.PUT("/:id", eventController.UpdateEvent)
+			adminRoutes.DELETE("/:id", eventController.DeleteEvent)
+		}
+
 		protected.POST("/:id/book", bookingController.BookEvent)
 		protected.GET("/my-bookings", bookingController.MyBookings)
 		protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
