@@ -64,14 +64,31 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 func (c *EventController) GetAllEvents(ctx *gin.Context) {
 
 	category := ctx.Query("category")
+	search := ctx.Query("search")
 
-	events, err := c.service.GetEvents(category)
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10"))
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	events, total, err := c.service.GetEvents(category, search, page, limit)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch events"})
+		ctx.JSON(500, gin.H{"error": "failed to fetch events"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, events)
+	ctx.JSON(200, gin.H{
+		"page":   page,
+		"limit":  limit,
+		"total":  total,
+		"events": events,
+	})
+
 }
 
 func (c *EventController) GetEventByID(ctx *gin.Context) {

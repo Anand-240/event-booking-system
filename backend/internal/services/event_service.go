@@ -48,8 +48,14 @@ func (s *EventService) GetEventByID(id uint) (*models.Event, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *EventService) GetEvents(category string) ([]models.Event, error) {
-	return s.repo.FindWithFilter(category)
+func (s *EventService) GetEvents(
+	category string,
+	search string,
+	page int,
+	limit int,
+) ([]models.Event, int64, error) {
+
+	return s.repo.FindWithFilter(category, search, page, limit)
 }
 
 func (s *EventService) UpdateEvent(event *models.Event) error {

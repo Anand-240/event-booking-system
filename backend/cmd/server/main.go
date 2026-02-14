@@ -42,7 +42,7 @@ func main() {
 	r.POST("/signup", authController.Signup)
 	r.POST("/login", authController.Login)
 
-	r.GET("/events/", eventController.GetAllEvents)
+	r.GET("/events", eventController.GetAllEvents)
 	r.GET("/events/:id", eventController.GetEventByID)
 
 	protected := r.Group("/events")

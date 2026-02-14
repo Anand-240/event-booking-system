@@ -32,17 +32,37 @@ func (r *EventRepository) FindByID(id uint) (*models.Event, error) {
 	return &event, err
 }
 
-func (r *EventRepository) FindWithFilter(category string) ([]models.Event, error) {
+func (r *EventRepository) FindWithFilter(
+	category string,
+	search string,
+	page int,
+	limit int,
+) ([]models.Event, int64, error) {
 
 	var events []models.Event
-	query := r.DB.Order("event_date ASC")
+	var total int64
+
+	query := r.DB.Model(&models.Event{})
 
 	if category != "" {
 		query = query.Where("category = ?", category)
 	}
 
-	err := query.Find(&events).Error
-	return events, err
+	if search != "" {
+		query = query.Where("title LIKE ?", "%"+search+"%")
+	}
+
+	query.Count(&total)
+
+	offset := (page - 1) * limit
+
+	err := query.
+		Order("event_date ASC").
+		Limit(limit).
+		Offset(offset).
+		Find(&events).Error
+
+	return events, total, err
 }
 
 func (r *EventRepository) Update(event *models.Event) error {
