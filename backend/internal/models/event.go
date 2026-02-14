@@ -12,6 +12,7 @@ type Event struct {
 	TotalSeats     int       `json:"total_seats"`
 	AvailableSeats int       `json:"available_seats"`
 	BannerURL      string    `json:"banner_url"`
+	Status         string    `gorm:"default:available" json:"status"`
 
 	Bookings []Booking
 }

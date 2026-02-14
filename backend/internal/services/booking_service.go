@@ -43,11 +43,20 @@ func (s *BookingService) BookEvent(userID, eventID uint, quantity int) error {
 			return errors.New("event not found")
 		}
 
+		if event.Status == "sold_out" {
+			return errors.New("event is sold out")
+		}
+
 		if event.AvailableSeats < quantity {
 			return errors.New("not enough seats available")
 		}
 
 		event.AvailableSeats -= quantity
+
+		if event.AvailableSeats == 0 {
+			event.Status = "sold_out"
+
+		}
 
 		if err := tx.Save(&event).Error; err != nil {
 			return err
@@ -87,6 +96,9 @@ func (s *BookingService) CancelBooking(userID, bookingID uint) error {
 
 		event.AvailableSeats += booking.Quantity
 
+		if event.AvailableSeats > 0 {
+			event.Status = "available"
+		}
 		if err := tx.Save(event).Error; err != nil {
 			return err
 		}
