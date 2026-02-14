@@ -36,7 +36,7 @@ func (c *AuthController) Signup(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "user created successfully",
+		"message": "user created successfully. please verify email",
 	})
 }
 
@@ -83,5 +83,24 @@ func (c *AuthController) Refresh(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"access_token": newAccessToken,
+	})
+}
+
+func (c *AuthController) VerifyEmail(ctx *gin.Context) {
+
+	token := ctx.Query("token")
+	if token == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "token required"})
+		return
+	}
+
+	err := c.service.VerifyEmail(token)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "email verified successfully",
 	})
 }

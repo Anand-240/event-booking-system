@@ -1,6 +1,8 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -23,18 +25,39 @@ func NewAuthService(userRepo *repositories.UserRepository, secret string) *AuthS
 	}
 }
 
+func generateToken() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
 func (s *AuthService) Signup(name, email, password string) error {
 
-	hashed, _ := bcrypt.GenerateFromPassword([]byte(password), 10)
-
-	user := &models.User{
-		Name:     name,
-		Email:    email,
-		Password: string(hashed),
-		Role:     "user",
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
 	}
 
-	return s.userRepo.Create(user)
+	verificationToken := generateToken()
+
+	user := &models.User{
+		Name:              name,
+		Email:             email,
+		Password:          string(hashed),
+		Role:              "user",
+		IsVerified:        false,
+		VerificationToken: verificationToken,
+	}
+
+	err = s.userRepo.Create(user)
+	if err != nil {
+		return err
+	}
+
+	println("Verify your email at:")
+	println("http://localhost:8080/verify-email?token=" + verificationToken)
+
+	return nil
 }
 
 func (s *AuthService) Login(email, password string) (string, string, error) {
@@ -49,6 +72,10 @@ func (s *AuthService) Login(email, password string) (string, string, error) {
 		return "", "", errors.New("invalid credentials")
 	}
 
+	if !user.IsVerified {
+		return "", "", errors.New("email not verified")
+	}
+
 	accessClaims := jwt.MapClaims{
 		"id":   user.ID,
 		"role": user.Role,
@@ -56,7 +83,10 @@ func (s *AuthService) Login(email, password string) (string, string, error) {
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessString, _ := accessToken.SignedString([]byte(s.jwtSecret))
+	accessString, err := accessToken.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		return "", "", errors.New("failed to generate access token")
+	}
 
 	refreshClaims := jwt.MapClaims{
 		"id":  user.ID,
@@ -64,7 +94,10 @@ func (s *AuthService) Login(email, password string) (string, string, error) {
 	}
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshString, _ := refreshToken.SignedString([]byte(s.jwtSecret))
+	refreshString, err := refreshToken.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		return "", "", errors.New("failed to generate refresh token")
+	}
 
 	user.RefreshToken = refreshString
 	s.userRepo.Update(user)
@@ -83,7 +116,6 @@ func (s *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
 	}
 
 	claims := token.Claims.(jwt.MapClaims)
-
 	userID := uint(claims["id"].(float64))
 
 	user, err := s.userRepo.FindByID(userID)
@@ -102,6 +134,18 @@ func (s *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
 	}
 
 	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
-
 	return newToken.SignedString([]byte(s.jwtSecret))
+}
+
+func (s *AuthService) VerifyEmail(token string) error {
+
+	user, err := s.userRepo.FindByVerificationToken(token)
+	if err != nil {
+		return errors.New("invalid token")
+	}
+
+	user.IsVerified = true
+	user.VerificationToken = ""
+
+	return s.userRepo.Update(user)
 }

@@ -45,6 +45,7 @@ func main() {
 
 	r.GET("/events", eventController.GetAllEvents)
 	r.GET("/events/:id", eventController.GetEventByID)
+	r.GET("/verify-email", authController.VerifyEmail)
 
 	protected := r.Group("/events")
 	protected.Use(middlewares.AuthMiddleware("SUPER_SECRET_KEY"))

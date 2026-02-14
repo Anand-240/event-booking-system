@@ -29,6 +29,12 @@ func (r *UserRepository) FindByID(id uint) (*models.User, error) {
 	return &user, err
 }
 
+func (r *UserRepository) FindByVerificationToken(token string) (*models.User, error) {
+	var user models.User
+	err := r.DB.Where("verification_token = ?", token).First(&user).Error
+	return &user, err
+}
+
 func (r *UserRepository) Update(user *models.User) error {
 	return r.DB.Save(user).Error
 }
