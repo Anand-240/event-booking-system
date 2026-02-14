@@ -1,6 +1,7 @@
 package main
 
 import (
+	"event-booking-backend/internal/config"
 	"event-booking-backend/internal/controllers"
 	"event-booking-backend/internal/middlewares"
 	"event-booking-backend/internal/models"
@@ -27,11 +28,13 @@ func main() {
 
 	r := gin.Default()
 
+	redisClient := config.InitRedis()
+
 	eventRepo := repositories.NewEventRepository(db)
 	userRepo := repositories.NewUserRepository(db)
 	bookingRepo := repositories.NewBookingRepository(db)
 
-	eventService := services.NewEventService(eventRepo)
+	eventService := services.NewEventService(eventRepo, redisClient)
 	authService := services.NewAuthService(userRepo, "SUPER_SECRET_KEY")
 	bookingService := services.NewBookingService(db, eventRepo, bookingRepo)
 
@@ -42,10 +45,10 @@ func main() {
 	r.POST("/signup", authController.Signup)
 	r.POST("/login", authController.Login)
 	r.POST("/refresh", authController.Refresh)
+	r.GET("/verify-email", authController.VerifyEmail)
 
 	r.GET("/events", eventController.GetAllEvents)
 	r.GET("/events/:id", eventController.GetEventByID)
-	r.GET("/verify-email", authController.VerifyEmail)
 
 	protected := r.Group("/events")
 	protected.Use(middlewares.AuthMiddleware("SUPER_SECRET_KEY"))
