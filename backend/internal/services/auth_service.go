@@ -12,12 +12,15 @@ import (
 )
 
 type AuthService struct {
-	repo      *repositories.UserRepository
+	userRepo  *repositories.UserRepository
 	jwtSecret string
 }
 
-func NewAuthService(repo *repositories.UserRepository, secret string) *AuthService {
-	return &AuthService{repo: repo, jwtSecret: secret}
+func NewAuthService(userRepo *repositories.UserRepository, secret string) *AuthService {
+	return &AuthService{
+		userRepo:  userRepo,
+		jwtSecret: secret,
+	}
 }
 
 func (s *AuthService) Signup(name, email, password string) error {
@@ -31,25 +34,74 @@ func (s *AuthService) Signup(name, email, password string) error {
 		Role:     "user",
 	}
 
-	return s.repo.Create(user)
+	return s.userRepo.Create(user)
 }
 
-func (s *AuthService) Login(email, password string) (string, error) {
+func (s *AuthService) Login(email, password string) (string, string, error) {
 
-	user, err := s.repo.FindByEmail(email)
+	user, err := s.userRepo.FindByEmail(email)
 	if err != nil {
-		return "", errors.New("invalid credentials")
+		return "", "", errors.New("invalid credentials")
 	}
 
-	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
-		return "", errors.New("invalid credentials")
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
+		return "", "", errors.New("invalid credentials")
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	accessClaims := jwt.MapClaims{
 		"id":   user.ID,
 		"role": user.Role,
-		"exp":  time.Now().Add(time.Hour * 24).Unix(),
+		"exp":  time.Now().Add(time.Minute * 15).Unix(),
+	}
+
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	accessString, _ := accessToken.SignedString([]byte(s.jwtSecret))
+
+	refreshClaims := jwt.MapClaims{
+		"id":  user.ID,
+		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(),
+	}
+
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	refreshString, _ := refreshToken.SignedString([]byte(s.jwtSecret))
+
+	user.RefreshToken = refreshString
+	s.userRepo.Update(user)
+
+	return accessString, refreshString, nil
+}
+
+func (s *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
+
+	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.jwtSecret), nil
 	})
 
-	return token.SignedString([]byte(s.jwtSecret))
+	if err != nil || !token.Valid {
+		return "", errors.New("invalid refresh token")
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	userID := uint(claims["id"].(float64))
+
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return "", errors.New("user not found")
+	}
+
+	if user.RefreshToken != refreshToken {
+		return "", errors.New("refresh token mismatch")
+	}
+
+	newClaims := jwt.MapClaims{
+		"id":   user.ID,
+		"role": user.Role,
+		"exp":  time.Now().Add(time.Minute * 15).Unix(),
+	}
+
+	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
+
+	return newToken.SignedString([]byte(s.jwtSecret))
 }
