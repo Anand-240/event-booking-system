@@ -25,6 +25,7 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 		Description string `json:"description"`
 		Location    string `json:"location"`
 		Date        string `json:"date"`
+		Category    string `json:"category"`
 		Seats       int    `json:"seats"`
 		BannerURL   string `json:"banner_url"`
 	}
@@ -45,6 +46,7 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 		body.Description,
 		body.Location,
 		eventDate,
+		body.Category,
 		body.Seats,
 		body.BannerURL,
 	)
@@ -61,7 +63,9 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 
 func (c *EventController) GetAllEvents(ctx *gin.Context) {
 
-	events, err := c.service.GetAllEvents()
+	category := ctx.Query("category")
+
+	events, err := c.service.GetEvents(category)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch events"})
 		return

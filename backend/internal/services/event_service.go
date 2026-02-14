@@ -16,7 +16,7 @@ func NewEventService(repo *repositories.EventRepository) *EventService {
 
 }
 
-func (s *EventService) CreateEvent(title, description, location string, eventDate time.Time, seats int, bannerURL string) error {
+func (s *EventService) CreateEvent(title, description, location string, eventDate time.Time, category string, seats int, bannerURL string) error {
 
 	if title == "" {
 		return errors.New("title is required")
@@ -31,6 +31,7 @@ func (s *EventService) CreateEvent(title, description, location string, eventDat
 		Description:    description,
 		Location:       location,
 		EventDate:      eventDate,
+		Category:       category,
 		TotalSeats:     seats,
 		AvailableSeats: seats,
 		BannerURL:      bannerURL,
@@ -45,6 +46,10 @@ func (s *EventService) GetAllEvents() ([]models.Event, error) {
 
 func (s *EventService) GetEventByID(id uint) (*models.Event, error) {
 	return s.repo.FindByID(id)
+}
+
+func (s *EventService) GetEvents(category string) ([]models.Event, error) {
+	return s.repo.FindWithFilter(category)
 }
 
 func (s *EventService) UpdateEvent(event *models.Event) error {

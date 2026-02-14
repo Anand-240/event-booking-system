@@ -32,6 +32,19 @@ func (r *EventRepository) FindByID(id uint) (*models.Event, error) {
 	return &event, err
 }
 
+func (r *EventRepository) FindWithFilter(category string) ([]models.Event, error) {
+
+	var events []models.Event
+	query := r.DB.Order("event_date ASC")
+
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
+
+	err := query.Find(&events).Error
+	return events, err
+}
+
 func (r *EventRepository) Update(event *models.Event) error {
 	return r.DB.Save(event).Error
 }
