@@ -71,6 +71,8 @@ func main() {
 		protected.GET("/my-bookings", bookingController.MyBookings)
 		protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
 		protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)
+		protected.POST("/bookings/:bookingID/confirm", bookingController.ConfirmPayment)
+		protected.POST("/bookings/:bookingID/refund", bookingController.RefundBooking)
 	}
 
 	r.Run(":8080")

@@ -62,17 +62,17 @@ func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) erro
 			return err
 		}
 
-		booking := models.Booking{
+		booking := &models.Booking{
 			UserID:        userID,
 			EventID:       eventID,
 			Quantity:      quantity,
-			Status:        "pending_payment",
-			PaymentStatus: "pending",
+			Status:        models.StatusPendingPayment,
+			PaymentStatus: models.PaymentPending,
 			OrderID:       GenerateOrderID(),
-			Amount:        quantity * 1000,
+			Amount:        quantity * 500,
 		}
 
-		if err := tx.Create(&booking).Error; err != nil {
+		if err := tx.Create(booking).Error; err != nil {
 			return err
 		}
 
@@ -84,14 +84,37 @@ func (s *BookingService) MyBookings(userID uint) ([]models.Booking, error) {
 	return s.bookingRepo.FindByUserID(userID)
 }
 
+func (s *BookingService) ConfirmPayment(bookingID uint) error {
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+
+		var booking models.Booking
+
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&booking, bookingID).Error; err != nil {
+			return errors.New("booking not found")
+		}
+
+		if booking.Status != models.StatusPendingPayment {
+			return errors.New("invalid state transition")
+		}
+
+		booking.Status = models.StatusConfirmed
+		booking.PaymentStatus = models.PaymentPaid
+		booking.PaymentID = GeneratePaymentID()
+
+		return tx.Save(&booking).Error
+	})
+}
+
 func (s *BookingService) CancelBooking(bookingID uint, userID uint) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 
 		var booking models.Booking
 
-		err := tx.First(&booking, bookingID).Error
-		if err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&booking, bookingID).Error; err != nil {
 			return errors.New("booking not found")
 		}
 
@@ -99,32 +122,49 @@ func (s *BookingService) CancelBooking(bookingID uint, userID uint) error {
 			return errors.New("unauthorized")
 		}
 
-		if booking.Status == "cancelled" {
-			return errors.New("already cancelled")
+		if booking.Status != models.StatusConfirmed {
+			return errors.New("only confirmed bookings can be cancelled")
 		}
 
 		var event models.Event
-		if err := tx.First(&event, booking.EventID).Error; err != nil {
+
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&event, booking.EventID).Error; err != nil {
 			return err
 		}
 
 		event.AvailableSeats += booking.Quantity
-
-		if event.AvailableSeats > 0 {
-			event.Status = "available"
-		}
+		event.Status = "available"
 
 		if err := tx.Save(&event).Error; err != nil {
 			return err
 		}
 
-		booking.Status = "cancelled"
-		booking.PaymentStatus = "refunded"
+		booking.Status = models.StatusCancelled
+		booking.PaymentStatus = models.PaymentPaid
 
-		if err := tx.Save(&booking).Error; err != nil {
-			return err
+		return tx.Save(&booking).Error
+	})
+}
+
+func (s *BookingService) RefundBooking(bookingID uint) error {
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+
+		var booking models.Booking
+
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&booking, bookingID).Error; err != nil {
+			return errors.New("booking not found")
 		}
 
-		return nil
+		if booking.Status != models.StatusCancelled {
+			return errors.New("only cancelled bookings can be refunded")
+		}
+
+		booking.Status = models.StatusRefunded
+		booking.PaymentStatus = models.PaymentRefunded
+
+		return tx.Save(&booking).Error
 	})
 }

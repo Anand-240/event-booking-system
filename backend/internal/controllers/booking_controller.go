@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"event-booking-backend/internal/services"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,7 +30,7 @@ func (c *BookingController) BookEvent(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
@@ -39,7 +40,7 @@ func (c *BookingController) BookEvent(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "booking created, pending payment"})
+	ctx.JSON(http.StatusOK, gin.H{"message": "booking created"})
 }
 
 func (c *BookingController) MyBookings(ctx *gin.Context) {
@@ -49,7 +50,7 @@ func (c *BookingController) MyBookings(ctx *gin.Context) {
 
 	bookings, err := c.service.MyBookings(userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not fetch bookings"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -71,4 +72,32 @@ func (c *BookingController) CancelBooking(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "booking cancelled"})
+}
+
+func (c *BookingController) ConfirmPayment(ctx *gin.Context) {
+
+	idParam := ctx.Param("bookingID")
+	idInt, _ := strconv.Atoi(idParam)
+
+	err := c.service.ConfirmPayment(uint(idInt))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "payment confirmed"})
+}
+
+func (c *BookingController) RefundBooking(ctx *gin.Context) {
+
+	idParam := ctx.Param("bookingID")
+	idInt, _ := strconv.Atoi(idParam)
+
+	err := c.service.RefundBooking(uint(idInt))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "booking refunded"})
 }
