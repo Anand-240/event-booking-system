@@ -11,20 +11,23 @@ import (
 )
 
 type BookingService struct {
-	db          *gorm.DB
-	eventRepo   *repositories.EventRepository
-	bookingRepo *repositories.BookingRepository
+	db           *gorm.DB
+	eventRepo    *repositories.EventRepository
+	bookingRepo  *repositories.BookingRepository
+	waitlistRepo *repositories.WaitlistRepository
 }
 
 func NewBookingService(
 	db *gorm.DB,
 	eventRepo *repositories.EventRepository,
 	bookingRepo *repositories.BookingRepository,
+	waitlistRepo *repositories.WaitlistRepository,
 ) *BookingService {
 	return &BookingService{
-		db:          db,
-		eventRepo:   eventRepo,
-		bookingRepo: bookingRepo,
+		db:           db,
+		eventRepo:    eventRepo,
+		bookingRepo:  bookingRepo,
+		waitlistRepo: waitlistRepo,
 	}
 }
 
@@ -40,16 +43,12 @@ func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) erro
 			return errors.New("event not found")
 		}
 
-		if event.Status == "sold_out" {
-			return errors.New("event is sold out")
-		}
-
 		if quantity <= 0 {
 			return errors.New("invalid quantity")
 		}
 
 		if event.AvailableSeats < quantity {
-			return errors.New("not enough seats available")
+			return s.waitlistRepo.Add(userID, eventID)
 		}
 
 		event.AvailableSeats -= quantity
@@ -72,11 +71,7 @@ func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) erro
 			Amount:        quantity * 500,
 		}
 
-		if err := tx.Create(booking).Error; err != nil {
-			return err
-		}
-
-		return nil
+		return tx.Create(booking).Error
 	})
 }
 
@@ -143,7 +138,31 @@ func (s *BookingService) CancelBooking(bookingID uint, userID uint) error {
 		booking.Status = models.StatusCancelled
 		booking.PaymentStatus = models.PaymentPaid
 
-		return tx.Save(&booking).Error
+		if err := tx.Save(&booking).Error; err != nil {
+			return err
+		}
+
+		nextWait, err := s.waitlistRepo.GetNext(event.ID)
+		if err == nil && event.AvailableSeats > 0 {
+
+			event.AvailableSeats -= 1
+
+			newBooking := &models.Booking{
+				UserID:        nextWait.UserID,
+				EventID:       event.ID,
+				Quantity:      1,
+				Status:        models.StatusConfirmed,
+				PaymentStatus: models.PaymentPaid,
+				OrderID:       GenerateOrderID(),
+				Amount:        500,
+			}
+
+			tx.Save(&event)
+			tx.Create(newBooking)
+			s.waitlistRepo.Delete(nextWait.ID)
+		}
+
+		return nil
 	})
 }
 

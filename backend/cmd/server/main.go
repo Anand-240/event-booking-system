@@ -26,6 +26,7 @@ func main() {
 		&models.Event{},
 		&models.User{},
 		&models.Booking{},
+		&models.Waitlist{},
 	)
 
 	r := gin.Default()
@@ -35,10 +36,16 @@ func main() {
 	eventRepo := repositories.NewEventRepository(db)
 	userRepo := repositories.NewUserRepository(db)
 	bookingRepo := repositories.NewBookingRepository(db)
+	waitlistRepo := repositories.NewWaitlistRepository(db)
 
 	eventService := services.NewEventService(eventRepo, redisClient)
 	authService := services.NewAuthService(userRepo, "SUPER_SECRET_KEY")
-	bookingService := services.NewBookingService(db, eventRepo, bookingRepo)
+	bookingService := services.NewBookingService(
+		db,
+		eventRepo,
+		bookingRepo,
+		waitlistRepo,
+	)
 
 	eventController := controllers.NewEventController(eventService)
 	authController := controllers.NewAuthController(authService)
@@ -58,6 +65,7 @@ func main() {
 		middlewares.AuthMiddleware("SUPER_SECRET_KEY"),
 		middlewares.RateLimitPerUser(5, time.Minute),
 	)
+
 	{
 		adminRoutes := protected.Group("/")
 		adminRoutes.Use(middlewares.AdminOnly())
