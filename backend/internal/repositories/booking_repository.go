@@ -13,28 +13,22 @@ func NewBookingRepository(db *gorm.DB) *BookingRepository {
 	return &BookingRepository{DB: db}
 }
 
-func (r *BookingRepository) Create(tx *gorm.DB, booking *models.Booking) error {
-	return tx.Create(booking).Error
+func (r *BookingRepository) Create(booking *models.Booking) error {
+	return r.DB.Create(booking).Error
 }
 
 func (r *BookingRepository) FindByUserID(userID uint) ([]models.Booking, error) {
 	var bookings []models.Booking
-
-	err := r.DB.
-		Preload("Event").
-		Preload("User").
-		Where("user_id = ?", userID).
-		Find(&bookings).Error
-
+	err := r.DB.Preload("Event").Where("user_id = ?", userID).Find(&bookings).Error
 	return bookings, err
 }
 
-func (r *BookingRepository) FindByID(tx *gorm.DB, id uint) (*models.Booking, error) {
+func (r *BookingRepository) FindByID(id uint) (*models.Booking, error) {
 	var booking models.Booking
-	err := tx.First(&booking, id).Error
+	err := r.DB.First(&booking, id).Error
 	return &booking, err
 }
 
-func (r *BookingRepository) Delete(tx *gorm.DB, booking *models.Booking) error {
-	return tx.Delete(booking).Error
+func (r *BookingRepository) Update(booking *models.Booking) error {
+	return r.DB.Save(booking).Error
 }

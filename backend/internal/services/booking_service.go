@@ -5,6 +5,7 @@ import (
 
 	"event-booking-backend/internal/models"
 	"event-booking-backend/internal/repositories"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -27,24 +28,24 @@ func NewBookingService(
 	}
 }
 
-func (s *BookingService) BookEvent(userID, eventID uint, quantity int) error {
-
-	if quantity <= 0 {
-		return errors.New("quantity must be greater than 0")
-	}
+func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 
 		var event models.Event
 
-		if err := tx.
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			First(&event, eventID).Error; err != nil {
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&event, eventID).Error
+		if err != nil {
 			return errors.New("event not found")
 		}
 
 		if event.Status == "sold_out" {
 			return errors.New("event is sold out")
+		}
+
+		if quantity <= 0 {
+			return errors.New("invalid quantity")
 		}
 
 		if event.AvailableSeats < quantity {
@@ -55,32 +56,41 @@ func (s *BookingService) BookEvent(userID, eventID uint, quantity int) error {
 
 		if event.AvailableSeats == 0 {
 			event.Status = "sold_out"
-
 		}
 
 		if err := tx.Save(&event).Error; err != nil {
 			return err
 		}
 
-		booking := &models.Booking{
-			UserID:   userID,
-			EventID:  eventID,
-			Quantity: quantity,
+		booking := models.Booking{
+			UserID:        userID,
+			EventID:       eventID,
+			Quantity:      quantity,
+			Status:        "pending_payment",
+			PaymentStatus: "pending",
+			OrderID:       GenerateOrderID(),
+			Amount:        quantity * 1000,
 		}
 
-		return s.bookingRepo.Create(tx, booking)
+		if err := tx.Create(&booking).Error; err != nil {
+			return err
+		}
+
+		return nil
 	})
 }
 
-func (s *BookingService) GetUserBookings(userID uint) ([]models.Booking, error) {
+func (s *BookingService) MyBookings(userID uint) ([]models.Booking, error) {
 	return s.bookingRepo.FindByUserID(userID)
 }
 
-func (s *BookingService) CancelBooking(userID, bookingID uint) error {
+func (s *BookingService) CancelBooking(bookingID uint, userID uint) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 
-		booking, err := s.bookingRepo.FindByID(tx, bookingID)
+		var booking models.Booking
+
+		err := tx.First(&booking, bookingID).Error
 		if err != nil {
 			return errors.New("booking not found")
 		}
@@ -89,9 +99,13 @@ func (s *BookingService) CancelBooking(userID, bookingID uint) error {
 			return errors.New("unauthorized")
 		}
 
-		event, err := s.eventRepo.FindByID(booking.EventID)
-		if err != nil {
-			return errors.New("event not found")
+		if booking.Status == "cancelled" {
+			return errors.New("already cancelled")
+		}
+
+		var event models.Event
+		if err := tx.First(&event, booking.EventID).Error; err != nil {
+			return err
 		}
 
 		event.AvailableSeats += booking.Quantity
@@ -99,10 +113,18 @@ func (s *BookingService) CancelBooking(userID, bookingID uint) error {
 		if event.AvailableSeats > 0 {
 			event.Status = "available"
 		}
-		if err := tx.Save(event).Error; err != nil {
+
+		if err := tx.Save(&event).Error; err != nil {
 			return err
 		}
 
-		return s.bookingRepo.Delete(tx, booking)
+		booking.Status = "cancelled"
+		booking.PaymentStatus = "refunded"
+
+		if err := tx.Save(&booking).Error; err != nil {
+			return err
+		}
+
+		return nil
 	})
 }

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"event-booking-backend/internal/config"
 	"event-booking-backend/internal/controllers"
 	"event-booking-backend/internal/middlewares"
@@ -11,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"time"
 )
 
 func main() {
@@ -42,6 +43,7 @@ func main() {
 	eventController := controllers.NewEventController(eventService)
 	authController := controllers.NewAuthController(authService)
 	bookingController := controllers.NewBookingController(bookingService)
+	paymentController := controllers.NewPaymentController(bookingRepo, eventRepo)
 
 	r.POST("/signup", authController.Signup)
 	r.POST("/login", authController.Login)
@@ -68,6 +70,7 @@ func main() {
 		protected.POST("/:id/book", bookingController.BookEvent)
 		protected.GET("/my-bookings", bookingController.MyBookings)
 		protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
+		protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)
 	}
 
 	r.Run(":8080")

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"net/http"
 	"strconv"
 
 	"event-booking-backend/internal/services"
@@ -17,80 +18,57 @@ func NewBookingController(service *services.BookingService) *BookingController {
 
 func (c *BookingController) BookEvent(ctx *gin.Context) {
 
-	userIDRaw, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(401, gin.H{"error": "unauthorized"})
-		return
-	}
-
+	userIDRaw, _ := ctx.Get("userID")
 	userID := uint(userIDRaw.(float64))
 
 	eventIDParam := ctx.Param("id")
-	eventIDInt, err := strconv.Atoi(eventIDParam)
-	if err != nil {
-		ctx.JSON(400, gin.H{"error": "invalid event id"})
-		return
-	}
+	eventIDInt, _ := strconv.Atoi(eventIDParam)
 
 	var body struct {
 		Quantity int `json:"quantity"`
 	}
 
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.JSON(400, gin.H{"error": "invalid input"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
 
-	err = c.service.BookEvent(userID, uint(eventIDInt), body.Quantity)
+	err := c.service.BookEvent(userID, uint(eventIDInt), body.Quantity)
 	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(200, gin.H{"message": "event booked successfully"})
+	ctx.JSON(http.StatusOK, gin.H{"message": "booking created, pending payment"})
 }
 
 func (c *BookingController) MyBookings(ctx *gin.Context) {
 
-	userIDRaw, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(401, gin.H{"error": "unauthorized"})
-		return
-	}
-
+	userIDRaw, _ := ctx.Get("userID")
 	userID := uint(userIDRaw.(float64))
 
-	bookings, err := c.service.GetUserBookings(userID)
+	bookings, err := c.service.MyBookings(userID)
 	if err != nil {
-		ctx.JSON(500, gin.H{"error": "failed to fetch bookings"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not fetch bookings"})
 		return
 	}
 
-	ctx.JSON(200, bookings)
+	ctx.JSON(http.StatusOK, bookings)
 }
 
 func (c *BookingController) CancelBooking(ctx *gin.Context) {
 
-	userIDRaw, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(401, gin.H{"error": "unauthorized"})
-		return
-	}
-
+	userIDRaw, _ := ctx.Get("userID")
 	userID := uint(userIDRaw.(float64))
 
-	bookingIDParam := ctx.Param("bookingID")
-	bookingIDInt, err := strconv.Atoi(bookingIDParam)
+	idParam := ctx.Param("bookingID")
+	idInt, _ := strconv.Atoi(idParam)
+
+	err := c.service.CancelBooking(uint(idInt), userID)
 	if err != nil {
-		ctx.JSON(400, gin.H{"error": "invalid booking id"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err = c.service.CancelBooking(userID, uint(bookingIDInt))
-	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(200, gin.H{"message": "booking cancelled successfully"})
+	ctx.JSON(http.StatusOK, gin.H{"message": "booking cancelled"})
 }

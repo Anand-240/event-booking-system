@@ -9,6 +9,12 @@ type Booking struct {
 	Quantity  int       `json:"quantity"`
 	CreatedAt time.Time `json:"created_at"`
 
+	Status        string `json:"status"`
+	PaymentStatus string `json:"payment_status"`
+	OrderID       string `json:"order_id"`
+	PaymentID     string `json:"payment_id"`
+	Amount        int    `json:"amount"`
+
 	User  User  `gorm:"foreignKey:UserID"`
 	Event Event `gorm:"foreignKey:EventID"`
 }
