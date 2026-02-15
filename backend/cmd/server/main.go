@@ -27,6 +27,7 @@ func main() {
 		&models.User{},
 		&models.Booking{},
 		&models.Waitlist{},
+		&models.Notification{},
 	)
 
 	r := gin.Default()
@@ -37,20 +38,24 @@ func main() {
 	userRepo := repositories.NewUserRepository(db)
 	bookingRepo := repositories.NewBookingRepository(db)
 	waitlistRepo := repositories.NewWaitlistRepository(db)
+	notificationRepo := repositories.NewNotificationRepository(db)
 
 	eventService := services.NewEventService(eventRepo, redisClient)
 	authService := services.NewAuthService(userRepo, "SUPER_SECRET_KEY")
+
 	bookingService := services.NewBookingService(
 		db,
 		eventRepo,
 		bookingRepo,
 		waitlistRepo,
+		notificationRepo,
 	)
 
 	eventController := controllers.NewEventController(eventService)
 	authController := controllers.NewAuthController(authService)
 	bookingController := controllers.NewBookingController(bookingService)
 	paymentController := controllers.NewPaymentController(bookingRepo, eventRepo)
+	notificationController := controllers.NewNotificationController(notificationRepo)
 
 	r.POST("/signup", authController.Signup)
 	r.POST("/login", authController.Login)
@@ -81,6 +86,9 @@ func main() {
 		protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)
 		protected.POST("/bookings/:bookingID/confirm", bookingController.ConfirmPayment)
 		protected.POST("/bookings/:bookingID/refund", bookingController.RefundBooking)
+
+		protected.GET("/notifications", notificationController.MyNotifications)
+		protected.POST("/notifications/:id/read", notificationController.MarkAsRead)
 	}
 
 	r.Run(":8080")

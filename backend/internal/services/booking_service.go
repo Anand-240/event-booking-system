@@ -11,10 +11,11 @@ import (
 )
 
 type BookingService struct {
-	db           *gorm.DB
-	eventRepo    *repositories.EventRepository
-	bookingRepo  *repositories.BookingRepository
-	waitlistRepo *repositories.WaitlistRepository
+	db               *gorm.DB
+	eventRepo        *repositories.EventRepository
+	bookingRepo      *repositories.BookingRepository
+	waitlistRepo     *repositories.WaitlistRepository
+	notificationRepo *repositories.NotificationRepository
 }
 
 func NewBookingService(
@@ -22,12 +23,14 @@ func NewBookingService(
 	eventRepo *repositories.EventRepository,
 	bookingRepo *repositories.BookingRepository,
 	waitlistRepo *repositories.WaitlistRepository,
+	notificationRepo *repositories.NotificationRepository,
 ) *BookingService {
 	return &BookingService{
-		db:           db,
-		eventRepo:    eventRepo,
-		bookingRepo:  bookingRepo,
-		waitlistRepo: waitlistRepo,
+		db:               db,
+		eventRepo:        eventRepo,
+		bookingRepo:      bookingRepo,
+		waitlistRepo:     waitlistRepo,
+		notificationRepo: notificationRepo,
 	}
 }
 
@@ -37,9 +40,8 @@ func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) erro
 
 		var event models.Event
 
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			First(&event, eventID).Error
-		if err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&event, eventID).Error; err != nil {
 			return errors.New("event not found")
 		}
 
@@ -48,7 +50,17 @@ func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) erro
 		}
 
 		if event.AvailableSeats < quantity {
-			return s.waitlistRepo.Add(userID, eventID)
+
+			wait := &models.Waitlist{
+				UserID:  userID,
+				EventID: eventID,
+			}
+
+			if err := tx.Create(wait).Error; err != nil {
+				return err
+			}
+
+			return errors.New("event sold out, added to waitlist")
 		}
 
 		event.AvailableSeats -= quantity
@@ -98,7 +110,16 @@ func (s *BookingService) ConfirmPayment(bookingID uint) error {
 		booking.PaymentStatus = models.PaymentPaid
 		booking.PaymentID = GeneratePaymentID()
 
-		return tx.Save(&booking).Error
+		if err := tx.Save(&booking).Error; err != nil {
+			return err
+		}
+
+		notification := &models.Notification{
+			UserID:  booking.UserID,
+			Message: "Your booking has been confirmed.",
+		}
+
+		return tx.Create(notification).Error
 	})
 }
 
@@ -142,24 +163,52 @@ func (s *BookingService) CancelBooking(bookingID uint, userID uint) error {
 			return err
 		}
 
-		nextWait, err := s.waitlistRepo.GetNext(event.ID)
-		if err == nil && event.AvailableSeats > 0 {
+		cancelNotification := &models.Notification{
+			UserID:  booking.UserID,
+			Message: "Your booking has been cancelled.",
+		}
+
+		if err := tx.Create(cancelNotification).Error; err != nil {
+			return err
+		}
+
+		var wait models.Waitlist
+
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("event_id = ?", event.ID).
+			Order("created_at ASC").
+			First(&wait).Error; err == nil && event.AvailableSeats > 0 {
 
 			event.AvailableSeats -= 1
 
 			newBooking := &models.Booking{
-				UserID:        nextWait.UserID,
+				UserID:        wait.UserID,
 				EventID:       event.ID,
 				Quantity:      1,
-				Status:        models.StatusConfirmed,
-				PaymentStatus: models.PaymentPaid,
+				Status:        models.StatusPendingPayment,
+				PaymentStatus: models.PaymentPending,
 				OrderID:       GenerateOrderID(),
 				Amount:        500,
 			}
 
-			tx.Save(&event)
-			tx.Create(newBooking)
-			s.waitlistRepo.Delete(nextWait.ID)
+			if err := tx.Save(&event).Error; err != nil {
+				return err
+			}
+
+			if err := tx.Create(newBooking).Error; err != nil {
+				return err
+			}
+
+			if err := tx.Delete(&wait).Error; err != nil {
+				return err
+			}
+
+			waitNotification := &models.Notification{
+				UserID:  wait.UserID,
+				Message: "A seat is available. Please complete payment.",
+			}
+
+			tx.Create(waitNotification)
 		}
 
 		return nil
@@ -184,6 +233,15 @@ func (s *BookingService) RefundBooking(bookingID uint) error {
 		booking.Status = models.StatusRefunded
 		booking.PaymentStatus = models.PaymentRefunded
 
-		return tx.Save(&booking).Error
+		if err := tx.Save(&booking).Error; err != nil {
+			return err
+		}
+
+		notification := &models.Notification{
+			UserID:  booking.UserID,
+			Message: "Your refund has been processed.",
+		}
+
+		return tx.Create(notification).Error
 	})
 }

@@ -1,11 +1,13 @@
 package models
 
+import "time"
+
 type Notification struct {
-	BaseModel
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `json:"user_id"`
+	Message   string    `json:"message"`
+	Read      bool      `gorm:"default:false" json:"read"`
+	CreatedAt time.Time `json:"created_at"`
 
-	UserID  uint   `json:"user_id"`
-	Message string `json:"message"`
-	Read    bool   `gorm:"default:false" json:"read"`
-
-	User User
+	User User `gorm:"foreignKey:UserID"`
 }

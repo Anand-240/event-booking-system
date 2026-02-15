@@ -12,5 +12,5 @@ type User struct {
 	VerificationToken string `json:"-"`
 
 	Bookings      []Booking
-	Notifications []Notification
+	Notifications []Notification `gorm:"foreignKey:UserID"`
 }
