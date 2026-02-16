@@ -26,6 +26,7 @@ func main() {
 		&models.Event{},
 		&models.User{},
 		&models.Booking{},
+		&models.Seat{},
 		&models.Waitlist{},
 		&models.Notification{},
 	)
@@ -39,23 +40,24 @@ func main() {
 	bookingRepo := repositories.NewBookingRepository(db)
 	waitlistRepo := repositories.NewWaitlistRepository(db)
 	notificationRepo := repositories.NewNotificationRepository(db)
+	seatRepo := repositories.NewSeatRepository(db)
 
 	eventService := services.NewEventService(eventRepo, redisClient)
 	authService := services.NewAuthService(userRepo, "SUPER_SECRET_KEY")
-
 	bookingService := services.NewBookingService(
 		db,
 		eventRepo,
 		bookingRepo,
 		waitlistRepo,
 		notificationRepo,
+		seatRepo,
 	)
 
 	eventController := controllers.NewEventController(eventService)
 	authController := controllers.NewAuthController(authService)
 	bookingController := controllers.NewBookingController(bookingService)
 	paymentController := controllers.NewPaymentController(bookingRepo, eventRepo)
-	notificationController := controllers.NewNotificationController(notificationRepo)
+	seatController := controllers.NewSeatController(seatRepo)
 
 	r.POST("/signup", authController.Signup)
 	r.POST("/login", authController.Login)
@@ -64,6 +66,7 @@ func main() {
 
 	r.GET("/events", eventController.GetAllEvents)
 	r.GET("/events/:id", eventController.GetEventByID)
+	r.GET("/events/:id/seats", seatController.GetSeatsByEvent)
 
 	protected := r.Group("/events")
 	protected.Use(
@@ -80,15 +83,12 @@ func main() {
 			adminRoutes.DELETE("/:id", eventController.DeleteEvent)
 		}
 
-		protected.POST("/:id/book", bookingController.BookEvent)
+		protected.POST("/:id/book-seats", bookingController.BookSeats)
 		protected.GET("/my-bookings", bookingController.MyBookings)
 		protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
 		protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)
 		protected.POST("/bookings/:bookingID/confirm", bookingController.ConfirmPayment)
 		protected.POST("/bookings/:bookingID/refund", bookingController.RefundBooking)
-
-		protected.GET("/notifications", notificationController.MyNotifications)
-		protected.POST("/notifications/:id/read", notificationController.MarkAsRead)
 	}
 
 	r.Run(":8080")

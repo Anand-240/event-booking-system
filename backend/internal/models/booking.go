@@ -15,6 +15,7 @@ type Booking struct {
 	PaymentID     string `gorm:"type:varchar(100)" json:"payment_id"`
 	Amount        int    `gorm:"not null" json:"amount"`
 
-	User  User  `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Event Event `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	User  User   `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Event Event  `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Seats []Seat `gorm:"many2many:booking_seats;" json:"seats"`
 }

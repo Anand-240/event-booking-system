@@ -1,38 +1,52 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
-	"event-booking-backend/internal/config"
 	"event-booking-backend/internal/models"
 	"event-booking-backend/internal/repositories"
 
-	"fmt"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 type EventService struct {
 	repo  *repositories.EventRepository
 	redis *redis.Client
+	db    *gorm.DB
 }
 
-func NewEventService(repo *repositories.EventRepository, rdb *redis.Client) *EventService {
+func NewEventService(
+	repo *repositories.EventRepository,
+	redisClient *redis.Client,
+) *EventService {
 	return &EventService{
 		repo:  repo,
-		redis: rdb,
+		redis: redisClient,
+		db:    repo.DB,
 	}
 }
 
-func (s *EventService) CreateEvent(title, description, location string, eventDate time.Time, category string, seats int, bannerURL string) error {
+func (s *EventService) CreateEvent(
+	title string,
+	description string,
+	location string,
+	eventDate time.Time,
+	category string,
+	seats int,
+	bannerURL string,
+) error {
 
 	if title == "" {
-		return errors.New("title is required")
+		return errors.New("title required")
 	}
 
 	if seats <= 0 {
-		return errors.New("seats must be greater than 0")
+		return errors.New("invalid seats")
 	}
 
 	event := &models.Event{
@@ -44,14 +58,21 @@ func (s *EventService) CreateEvent(title, description, location string, eventDat
 		TotalSeats:     seats,
 		AvailableSeats: seats,
 		BannerURL:      bannerURL,
+		Status:         models.EventAvailable,
 	}
 
-	err := s.repo.Create(event)
-	if err != nil {
+	if err := s.repo.Create(event); err != nil {
 		return err
 	}
 
-	s.redis.Del(config.Ctx, "events_list")
+	rows := 5
+	cols := (seats + rows - 1) / rows
+
+	if err := generateSeats(event.ID, rows, cols, seats, s.db); err != nil {
+		return err
+	}
+
+	s.redis.Del(context.Background(), "events_list")
 
 	return nil
 }
@@ -60,7 +81,9 @@ func (s *EventService) GetAllEvents() ([]models.Event, error) {
 
 	cacheKey := "events_list"
 
-	cached, err := s.redis.Get(config.Ctx, cacheKey).Result()
+	ctx := context.Background()
+
+	cached, err := s.redis.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var events []models.Event
 		json.Unmarshal([]byte(cached), &events)
@@ -73,13 +96,51 @@ func (s *EventService) GetAllEvents() ([]models.Event, error) {
 	}
 
 	data, _ := json.Marshal(events)
-	s.redis.Set(config.Ctx, cacheKey, data, time.Minute*5)
+	s.redis.Set(ctx, cacheKey, data, time.Minute*5)
 
 	return events, nil
 }
 
 func (s *EventService) GetEventByID(id uint) (*models.Event, error) {
 	return s.repo.FindByID(id)
+}
+
+func (s *EventService) UpdateEvent(event *models.Event) error {
+	s.redis.Del(context.Background(), "events_list")
+	return s.repo.Update(event)
+}
+
+func (s *EventService) DeleteEvent(id uint) error {
+	s.redis.Del(context.Background(), "events_list")
+	return s.repo.Delete(id)
+}
+
+func generateSeats(eventID uint, rows int, cols int, totalSeats int, db *gorm.DB) error {
+
+	count := 0
+
+	for r := 0; r < rows; r++ {
+		for c := 1; c <= cols; c++ {
+
+			if count >= totalSeats {
+				return nil
+			}
+
+			seat := models.Seat{
+				EventID:    eventID,
+				SeatNumber: string(rune('A'+r)) + strconv.Itoa(c),
+				IsBooked:   false,
+			}
+
+			if err := db.Create(&seat).Error; err != nil {
+				return err
+			}
+
+			count++
+		}
+	}
+
+	return nil
 }
 
 func (s *EventService) GetEvents(
@@ -89,58 +150,5 @@ func (s *EventService) GetEvents(
 	limit int,
 ) ([]models.Event, int64, error) {
 
-	cacheKey := "events:" + category + ":" + search + ":" +
-		fmt.Sprintf("%d:%d", page, limit)
-
-	cached, err := s.redis.Get(config.Ctx, cacheKey).Result()
-	if err == nil {
-		var result struct {
-			Events []models.Event
-			Total  int64
-		}
-		json.Unmarshal([]byte(cached), &result)
-		return result.Events, result.Total, nil
-	}
-
-	events, total, err := s.repo.FindWithFilter(category, search, page, limit)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	payload := struct {
-		Events []models.Event
-		Total  int64
-	}{
-		Events: events,
-		Total:  total,
-	}
-
-	data, _ := json.Marshal(payload)
-	s.redis.Set(config.Ctx, cacheKey, data, time.Minute*5)
-
-	return events, total, nil
-}
-
-func (s *EventService) UpdateEvent(event *models.Event) error {
-
-	err := s.repo.Update(event)
-	if err != nil {
-		return err
-	}
-
-	s.redis.Del(config.Ctx, "events_list")
-
-	return nil
-}
-
-func (s *EventService) DeleteEvent(id uint) error {
-
-	err := s.repo.Delete(id)
-	if err != nil {
-		return err
-	}
-
-	s.redis.Del(config.Ctx, "events_list")
-
-	return nil
+	return s.repo.FindWithFilter(category, search, page, limit)
 }

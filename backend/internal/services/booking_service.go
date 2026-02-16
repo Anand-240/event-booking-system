@@ -16,6 +16,7 @@ type BookingService struct {
 	bookingRepo      *repositories.BookingRepository
 	waitlistRepo     *repositories.WaitlistRepository
 	notificationRepo *repositories.NotificationRepository
+	seatRepo         *repositories.SeatRepository
 }
 
 func NewBookingService(
@@ -24,6 +25,7 @@ func NewBookingService(
 	bookingRepo *repositories.BookingRepository,
 	waitlistRepo *repositories.WaitlistRepository,
 	notificationRepo *repositories.NotificationRepository,
+	seatRepo *repositories.SeatRepository,
 ) *BookingService {
 	return &BookingService{
 		db:               db,
@@ -31,10 +33,11 @@ func NewBookingService(
 		bookingRepo:      bookingRepo,
 		waitlistRepo:     waitlistRepo,
 		notificationRepo: notificationRepo,
+		seatRepo:         seatRepo,
 	}
 }
 
-func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) error {
+func (s *BookingService) BookSeats(userID uint, eventID uint, seatNumbers []string) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 
@@ -45,11 +48,29 @@ func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) erro
 			return errors.New("event not found")
 		}
 
-		if quantity <= 0 {
-			return errors.New("invalid quantity")
+		if len(seatNumbers) == 0 {
+			return errors.New("no seats selected")
 		}
 
-		if event.AvailableSeats < quantity {
+		var seats []models.Seat
+
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("event_id = ? AND seat_number IN ?", eventID, seatNumbers).
+			Find(&seats).Error; err != nil {
+			return err
+		}
+
+		if len(seats) != len(seatNumbers) {
+			return errors.New("invalid seat selection")
+		}
+
+		for _, seat := range seats {
+			if seat.IsBooked {
+				return errors.New("one or more seats already booked")
+			}
+		}
+
+		if event.AvailableSeats < len(seatNumbers) {
 
 			wait := &models.Waitlist{
 				UserID:  userID,
@@ -63,10 +84,9 @@ func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) erro
 			return errors.New("event sold out, added to waitlist")
 		}
 
-		event.AvailableSeats -= quantity
-
+		event.AvailableSeats -= len(seatNumbers)
 		if event.AvailableSeats == 0 {
-			event.Status = "sold_out"
+			event.Status = models.EventSoldOut
 		}
 
 		if err := tx.Save(&event).Error; err != nil {
@@ -76,19 +96,27 @@ func (s *BookingService) BookEvent(userID uint, eventID uint, quantity int) erro
 		booking := &models.Booking{
 			UserID:        userID,
 			EventID:       eventID,
-			Quantity:      quantity,
+			Quantity:      len(seatNumbers),
 			Status:        models.StatusPendingPayment,
 			PaymentStatus: models.PaymentPending,
 			OrderID:       GenerateOrderID(),
-			Amount:        quantity * 500,
+			Amount:        len(seatNumbers) * 500,
 		}
 
-		return tx.Create(booking).Error
-	})
-}
+		if err := tx.Create(&booking).Error; err != nil {
+			return err
+		}
 
-func (s *BookingService) MyBookings(userID uint) ([]models.Booking, error) {
-	return s.bookingRepo.FindByUserID(userID)
+		for i := range seats {
+			seats[i].IsBooked = true
+			seats[i].BookingID = &booking.ID
+			if err := tx.Save(&seats[i]).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func (s *BookingService) ConfirmPayment(bookingID uint) error {
@@ -150,7 +178,7 @@ func (s *BookingService) CancelBooking(bookingID uint, userID uint) error {
 		}
 
 		event.AvailableSeats += booking.Quantity
-		event.Status = "available"
+		event.Status = models.EventAvailable
 
 		if err := tx.Save(&event).Error; err != nil {
 			return err
@@ -208,7 +236,9 @@ func (s *BookingService) CancelBooking(bookingID uint, userID uint) error {
 				Message: "A seat is available. Please complete payment.",
 			}
 
-			tx.Create(waitNotification)
+			if err := tx.Create(waitNotification).Error; err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -244,4 +274,8 @@ func (s *BookingService) RefundBooking(bookingID uint) error {
 
 		return tx.Create(notification).Error
 	})
+}
+
+func (s *BookingService) MyBookings(userID uint) ([]models.Booking, error) {
+	return s.bookingRepo.FindByUserID(userID)
 }
