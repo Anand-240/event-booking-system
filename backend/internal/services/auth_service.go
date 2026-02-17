@@ -72,9 +72,9 @@ func (s *AuthService) Login(email, password string) (string, string, error) {
 		return "", "", errors.New("invalid credentials")
 	}
 
-	if !user.IsVerified {
-		return "", "", errors.New("email not verified")
-	}
+	// if !user.IsVerified {
+	// 	return "", "", errors.New("email not verified")
+	// }
 
 	accessClaims := jwt.MapClaims{
 		"id":   user.ID,
