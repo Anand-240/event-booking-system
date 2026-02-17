@@ -10,27 +10,24 @@ export default function Login() {
   const [password, setPassword] = useState("")
 
   const handleLogin = async () => {
-    const res = await fetch("http://localhost:8080/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    })
+  const res = await fetch("http://localhost:8080/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  })
 
-    const data = await res.json()
+  const data = await res.json()
 
-    if (res.ok) {
-      localStorage.setItem("token", data.access_token)
-      alert("Login successful")
-      router.push("/events")
-    } else {
-      alert(data.error || "Login failed")
-    }
+  if (res.ok) {
+    localStorage.setItem("access_token", data.access_token)
+    alert("Login successful")
+    router.push("/events")
+  } else {
+    alert(data.error || "Login failed")
   }
+}
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">
