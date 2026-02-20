@@ -41,26 +41,32 @@ func (c *AuthController) Signup(ctx *gin.Context) {
 }
 
 func (c *AuthController) Login(ctx *gin.Context) {
-
 	var body struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
 	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid input"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
-	accessToken, refreshToken, err := c.service.Login(body.Email, body.Password)
+	access, refresh, user, err := c.service.Login(body.Email, body.Password)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+		"message":       "login successful",
+		"access_token":  access,
+		"refresh_token": refresh,
+		"user": gin.H{
+			"id":    user.ID,
+			"name":  user.Name,
+			"email": user.Email,
+			"role":  user.Role,
+		},
 	})
 }
 

@@ -48,18 +48,20 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 		body.Seats,
 		body.BannerURL,
 	)
-
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{"message": "event created successfully"})
+	ctx.JSON(http.StatusCreated, gin.H{
+		"message": "event created successfully",
+	})
 }
 
 func (c *EventController) GetAllEvents(ctx *gin.Context) {
 	category := ctx.Query("category")
 	search := ctx.Query("search")
+
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "12"))
 
@@ -97,7 +99,9 @@ func (c *EventController) GetEventByID(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"event": event})
+	ctx.JSON(http.StatusOK, gin.H{
+		"event": event,
+	})
 }
 
 func (c *EventController) UpdateEvent(ctx *gin.Context) {
@@ -141,12 +145,12 @@ func (c *EventController) UpdateEvent(ctx *gin.Context) {
 		event.Category = body.Category
 	}
 	if body.Date != "" {
-		d, err := time.Parse("2006-01-02", body.Date)
+		date, err := time.Parse("2006-01-02", body.Date)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid date format"})
 			return
 		}
-		event.EventDate = d
+		event.EventDate = date
 	}
 	if body.Seats > 0 {
 		event.TotalSeats = body.Seats
@@ -156,12 +160,15 @@ func (c *EventController) UpdateEvent(ctx *gin.Context) {
 		event.BannerURL = body.BannerURL
 	}
 
-	if err := c.service.UpdateEvent(event); err != nil {
+	err = c.service.UpdateEvent(event)
+	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update event"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "event updated successfully"})
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "event updated successfully",
+	})
 }
 
 func (c *EventController) DeleteEvent(ctx *gin.Context) {
@@ -171,10 +178,13 @@ func (c *EventController) DeleteEvent(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.service.DeleteEvent(uint(id)); err != nil {
+	err = c.service.DeleteEvent(uint(id))
+	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "event deleted successfully"})
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "event deleted successfully",
+	})
 }

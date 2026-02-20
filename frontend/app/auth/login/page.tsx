@@ -5,29 +5,31 @@ import { useRouter } from "next/navigation"
 
 export default function Login() {
   const router = useRouter()
-
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
   const handleLogin = async () => {
-  const res = await fetch("http://localhost:8080/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email, password }),
-  })
+    const res = await fetch("http://localhost:8080/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    })
 
-  const data = await res.json()
+    const data = await res.json()
 
-  if (res.ok) {
+    if (!res.ok) {
+      alert(data.error || "Login failed")
+      return
+    }
+
     localStorage.setItem("access_token", data.access_token)
-    alert("Login successful")
+    localStorage.setItem("refresh_token", data.refresh_token)
+    if (data.user?.role) {
+      localStorage.setItem("role", data.user.role)
+    } 
+
     router.push("/events")
-  } else {
-    alert(data.error || "Login failed")
   }
-}
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">
@@ -57,7 +59,7 @@ export default function Login() {
         Don’t have an account?{" "}
         <span
           onClick={() => router.push("/auth/signup")}
-          className="text-green-600 cursor-pointer"
+          className="cursor-pointer text-blue-600"
         >
           Signup
         </span>

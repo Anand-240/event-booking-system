@@ -60,49 +60,43 @@ func (s *AuthService) Signup(name, email, password string) error {
 	return nil
 }
 
-func (s *AuthService) Login(email, password string) (string, string, error) {
-
+func (s *AuthService) Login(email, password string) (string, string, *models.User, error) {
 	user, err := s.userRepo.FindByEmail(email)
 	if err != nil {
-		return "", "", errors.New("invalid credentials")
+		return "", "", nil, errors.New("invalid credentials")
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
-		return "", "", errors.New("invalid credentials")
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+		return "", "", nil, errors.New("invalid credentials")
 	}
-
-	// if !user.IsVerified {
-	// 	return "", "", errors.New("email not verified")
-	// }
 
 	accessClaims := jwt.MapClaims{
 		"id":   user.ID,
 		"role": user.Role,
-		"exp":  time.Now().Add(time.Minute * 15).Unix(),
+		"exp":  time.Now().Add(15 * time.Minute).Unix(),
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	accessString, err := accessToken.SignedString([]byte(s.jwtSecret))
 	if err != nil {
-		return "", "", errors.New("failed to generate access token")
+		return "", "", nil, errors.New("failed to generate access token")
 	}
 
 	refreshClaims := jwt.MapClaims{
 		"id":  user.ID,
-		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(),
+		"exp": time.Now().Add(7 * 24 * time.Hour).Unix(),
 	}
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refreshString, err := refreshToken.SignedString([]byte(s.jwtSecret))
 	if err != nil {
-		return "", "", errors.New("failed to generate refresh token")
+		return "", "", nil, errors.New("failed to generate refresh token")
 	}
 
 	user.RefreshToken = refreshString
 	s.userRepo.Update(user)
 
-	return accessString, refreshString, nil
+	return accessString, refreshString, user, nil
 }
 
 func (s *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
@@ -139,9 +133,9 @@ func (s *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
 
 func (s *AuthService) VerifyEmail(token string) error {
 
-	user, err := s.userRepo.FindByVerificationToken(token)
-	if err != nil {
-		return errors.New("invalid token")
+	user, err := s.userRepo.FindByEmail(email)
+	if err != nil || user.ID == 0 {
+		return "", "", errors.New("invalid credentials")
 	}
 
 	user.IsVerified = true

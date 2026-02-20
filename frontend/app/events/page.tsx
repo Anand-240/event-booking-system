@@ -9,6 +9,9 @@ export default function EventsPage() {
   const [category, setCategory] = useState("all")
   const [loading, setLoading] = useState(true)
 
+  const role =
+    typeof window !== "undefined" ? localStorage.getItem("role") : null
+
   const fetchEvents = async () => {
     setLoading(true)
 
@@ -18,7 +21,6 @@ export default function EventsPage() {
 
     const res = await fetch(`http://localhost:8080/events?${params.toString()}`)
     const data = await res.json()
-
 
     setEvents(data.events || [])
     setLoading(false)
@@ -39,7 +41,17 @@ export default function EventsPage() {
     <div className="min-h-screen p-8 bg-gray-50">
       <h1 className="text-4xl font-bold mb-8 text-center text-black">Events</h1>
 
-      {/* Search + Filter */}
+      {role === "admin" && (
+        <div className="flex justify-end mb-6">
+          <Link
+            href="/admin/create-event"
+            className="px-5 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition"
+          >
+            + Create Event
+          </Link>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row items-center gap-4 mb-8 justify-center text-black">
         <input
           type="text"
@@ -69,7 +81,6 @@ export default function EventsPage() {
         </button>
       </div>
 
-      {/* Events Grid */}
       {loading ? (
         <p className="text-center text-gray-500">Loading events...</p>
       ) : events.length === 0 ? (
