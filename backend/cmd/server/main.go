@@ -12,16 +12,11 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func main() {
 
-	db, err := gorm.Open(sqlite.Open("events.db"), &gorm.Config{})
-	if err != nil {
-		panic("failed to connect database")
-	}
+	db := config.ConnectDB()
 
 	db.AutoMigrate(
 		&models.Event{},
@@ -82,22 +77,20 @@ func main() {
 		middlewares.RateLimitPerUser(5, time.Minute),
 	)
 
+	adminRoutes := protected.Group("/")
+	adminRoutes.Use(middlewares.AdminOnly())
 	{
-		adminRoutes := protected.Group("/")
-		adminRoutes.Use(middlewares.AdminOnly())
-		{
-			adminRoutes.POST("/", eventController.CreateEvent)
-			adminRoutes.PUT("/:id", eventController.UpdateEvent)
-			adminRoutes.DELETE("/:id", eventController.DeleteEvent)
-		}
-
-		protected.POST("/:id/book-seats", bookingController.BookSeats)
-		protected.GET("/my-bookings", bookingController.MyBookings)
-		protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
-		protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)
-		protected.POST("/bookings/:bookingID/confirm", bookingController.ConfirmPayment)
-		protected.POST("/bookings/:bookingID/refund", bookingController.RefundBooking)
+		adminRoutes.POST("/", eventController.CreateEvent)
+		adminRoutes.PUT("/:id", eventController.UpdateEvent)
+		adminRoutes.DELETE("/:id", eventController.DeleteEvent)
 	}
+
+	protected.POST("/:id/book-seats", bookingController.BookSeats)
+	protected.GET("/my-bookings", bookingController.MyBookings)
+	protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
+	protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)
+	protected.POST("/bookings/:bookingID/confirm", bookingController.ConfirmPayment)
+	protected.POST("/bookings/:bookingID/refund", bookingController.RefundBooking)
 
 	r.Run(":8080")
 }
