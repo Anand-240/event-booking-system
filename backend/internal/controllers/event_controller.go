@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"event-booking-backend/internal/services"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,7 +18,6 @@ func NewEventController(service *services.EventService) *EventController {
 }
 
 func (c *EventController) CreateEvent(ctx *gin.Context) {
-
 	var body struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -56,47 +54,40 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "event created successfully",
-	})
+	ctx.JSON(http.StatusCreated, gin.H{"message": "event created successfully"})
 }
 
 func (c *EventController) GetAllEvents(ctx *gin.Context) {
-
 	category := ctx.Query("category")
 	search := ctx.Query("search")
-
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10"))
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "12"))
 
 	if page <= 0 {
 		page = 1
 	}
 	if limit <= 0 {
-		limit = 10
+		limit = 12
 	}
 
 	events, total, err := c.service.GetEvents(category, search, page, limit)
 	if err != nil {
-		ctx.JSON(500, gin.H{"error": "failed to fetch events"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch events"})
 		return
 	}
 
-	ctx.JSON(200, gin.H{
+	ctx.JSON(http.StatusOK, gin.H{
 		"page":   page,
 		"limit":  limit,
 		"total":  total,
 		"events": events,
 	})
-
 }
 
 func (c *EventController) GetEventByID(ctx *gin.Context) {
-
-	idParam := ctx.Param("id")
-	id, err := strconv.Atoi(idParam)
+	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid event id"})
 		return
 	}
 
@@ -106,13 +97,11 @@ func (c *EventController) GetEventByID(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, event)
+	ctx.JSON(http.StatusOK, gin.H{"event": event})
 }
 
 func (c *EventController) UpdateEvent(ctx *gin.Context) {
-
-	idParam := ctx.Param("id")
-	id, err := strconv.Atoi(idParam)
+	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
@@ -125,6 +114,7 @@ func (c *EventController) UpdateEvent(ctx *gin.Context) {
 		Date        string `json:"date"`
 		Seats       int    `json:"seats"`
 		BannerURL   string `json:"banner_url"`
+		Category    string `json:"category"`
 	}
 
 	if err := ctx.ShouldBindJSON(&body); err != nil {
@@ -147,6 +137,17 @@ func (c *EventController) UpdateEvent(ctx *gin.Context) {
 	if body.Location != "" {
 		event.Location = body.Location
 	}
+	if body.Category != "" {
+		event.Category = body.Category
+	}
+	if body.Date != "" {
+		d, err := time.Parse("2006-01-02", body.Date)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid date format"})
+			return
+		}
+		event.EventDate = d
+	}
 	if body.Seats > 0 {
 		event.TotalSeats = body.Seats
 		event.AvailableSeats = body.Seats
@@ -154,42 +155,26 @@ func (c *EventController) UpdateEvent(ctx *gin.Context) {
 	if body.BannerURL != "" {
 		event.BannerURL = body.BannerURL
 	}
-	if body.Date != "" {
-		eventDate, err := time.Parse("2006-01-02", body.Date)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid date format"})
-			return
-		}
-		event.EventDate = eventDate
-	}
 
-	err = c.service.UpdateEvent(event)
-	if err != nil {
+	if err := c.service.UpdateEvent(event); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update event"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "event updated successfully",
-	})
+	ctx.JSON(http.StatusOK, gin.H{"message": "event updated successfully"})
 }
 
 func (c *EventController) DeleteEvent(ctx *gin.Context) {
-
-	idParam := ctx.Param("id")
-	id, err := strconv.Atoi(idParam)
+	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	err = c.service.DeleteEvent(uint(id))
-	if err != nil {
+	if err := c.service.DeleteEvent(uint(id)); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "event deleted successfully",
-	})
+	ctx.JSON(http.StatusOK, gin.H{"message": "event deleted successfully"})
 }
