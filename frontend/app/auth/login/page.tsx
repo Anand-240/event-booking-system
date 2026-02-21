@@ -24,11 +24,16 @@ export default function Login() {
 
     localStorage.setItem("access_token", data.access_token)
     localStorage.setItem("refresh_token", data.refresh_token)
+
     if (data.user?.role) {
       localStorage.setItem("role", data.user.role)
-    } 
+    }
 
-    router.push("/events")
+    if (data.user?.role === "admin") {
+      router.push("/admin/events")
+    } else {
+      router.push("/events")
+    }
   }
 
   return (

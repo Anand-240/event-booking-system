@@ -18,14 +18,20 @@ func NewEventController(service *services.EventService) *EventController {
 }
 
 func (c *EventController) CreateEvent(ctx *gin.Context) {
+
 	var body struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Location    string `json:"location"`
-		Date        string `json:"date"`
-		Category    string `json:"category"`
-		Seats       int    `json:"seats"`
-		BannerURL   string `json:"banner_url"`
+		Title       string  `json:"title"`
+		Description string  `json:"description"`
+		Location    string  `json:"location"`
+		Date        string  `json:"date"`
+		Time        string  `json:"event_time"`
+		Category    string  `json:"category"`
+		Seats       int     `json:"seats"`
+		Capacity    int     `json:"capacity"`
+		Price       float64 `json:"price"`
+		Organizer   string  `json:"organizer"`
+		BannerURL   string  `json:"banner_url"`
+		Status      string  `json:"status"`
 	}
 
 	if err := ctx.ShouldBindJSON(&body); err != nil {
@@ -44,21 +50,26 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 		body.Description,
 		body.Location,
 		eventDate,
+		body.Time,
 		body.Category,
 		body.Seats,
+		body.Capacity,
+		body.Price,
+		body.Organizer,
 		body.BannerURL,
+		body.Status,
 	)
+
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "event created successfully",
-	})
+	ctx.JSON(http.StatusCreated, gin.H{"message": "event created successfully"})
 }
 
 func (c *EventController) GetAllEvents(ctx *gin.Context) {
+
 	category := ctx.Query("category")
 	search := ctx.Query("search")
 
@@ -87,6 +98,7 @@ func (c *EventController) GetAllEvents(ctx *gin.Context) {
 }
 
 func (c *EventController) GetEventByID(ctx *gin.Context) {
+
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid event id"})
@@ -99,26 +111,29 @@ func (c *EventController) GetEventByID(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"event": event,
-	})
+	ctx.JSON(http.StatusOK, gin.H{"event": event})
 }
 
 func (c *EventController) UpdateEvent(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid event id"})
 		return
 	}
 
 	var body struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Location    string `json:"location"`
-		Date        string `json:"date"`
-		Seats       int    `json:"seats"`
-		BannerURL   string `json:"banner_url"`
-		Category    string `json:"category"`
+		Title       string  `json:"title"`
+		Description string  `json:"description"`
+		Location    string  `json:"location"`
+		Date        string  `json:"date"`
+		Time        string  `json:"event_time"`
+		Category    string  `json:"category"`
+		Seats       int     `json:"seats"`
+		Capacity    int     `json:"capacity"`
+		Price       float64 `json:"price"`
+		Organizer   string  `json:"organizer"`
+		BannerURL   string  `json:"banner_url"`
+		Status      string  `json:"status"`
 	}
 
 	if err := ctx.ShouldBindJSON(&body); err != nil {
@@ -144,6 +159,21 @@ func (c *EventController) UpdateEvent(ctx *gin.Context) {
 	if body.Category != "" {
 		event.Category = body.Category
 	}
+	if body.Status != "" {
+		event.Status = body.Status
+	}
+	if body.Time != "" {
+		event.EventTime = body.Time
+	}
+	if body.Organizer != "" {
+		event.Organizer = body.Organizer
+	}
+	if body.Price > 0 {
+		event.Price = body.Price
+	}
+	if body.Capacity > 0 {
+		event.Capacity = body.Capacity
+	}
 	if body.Date != "" {
 		date, err := time.Parse("2006-01-02", body.Date)
 		if err != nil {
@@ -166,12 +196,11 @@ func (c *EventController) UpdateEvent(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "event updated successfully",
-	})
+	ctx.JSON(http.StatusOK, gin.H{"message": "event updated successfully"})
 }
 
 func (c *EventController) DeleteEvent(ctx *gin.Context) {
+
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -184,7 +213,5 @@ func (c *EventController) DeleteEvent(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "event deleted successfully",
-	})
+	ctx.JSON(http.StatusOK, gin.H{"message": "event deleted successfully"})
 }

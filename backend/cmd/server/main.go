@@ -71,21 +71,21 @@ func main() {
 	r.GET("/events/:id", eventController.GetEventByID)
 	r.GET("/events/:id/seats", seatController.GetSeatsByEvent)
 
-	protected := r.Group("/events")
+	protected := r.Group("/")
 	protected.Use(
 		middlewares.AuthMiddleware("SUPER_SECRET_KEY"),
 		middlewares.RateLimitPerUser(5, time.Minute),
 	)
 
-	adminRoutes := protected.Group("/")
-	adminRoutes.Use(middlewares.AdminOnly())
+	admin := protected.Group("/admin")
+	admin.Use(middlewares.AdminOnly())
 	{
-		adminRoutes.POST("/", eventController.CreateEvent)
-		adminRoutes.PUT("/:id", eventController.UpdateEvent)
-		adminRoutes.DELETE("/:id", eventController.DeleteEvent)
+		admin.POST("/events", eventController.CreateEvent)
+		admin.PUT("/events/:id", eventController.UpdateEvent)
+		admin.DELETE("/events/:id", eventController.DeleteEvent)
 	}
 
-	protected.POST("/:id/book-seats", bookingController.BookSeats)
+	protected.POST("/events/:id/book-seats", bookingController.BookSeats)
 	protected.GET("/my-bookings", bookingController.MyBookings)
 	protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
 	protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)

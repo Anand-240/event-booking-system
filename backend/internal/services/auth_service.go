@@ -32,7 +32,6 @@ func generateToken() string {
 }
 
 func (s *AuthService) Signup(name, email, password string) error {
-
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -54,7 +53,7 @@ func (s *AuthService) Signup(name, email, password string) error {
 		return err
 	}
 
-	println("Verify your email at:")
+	println("Verify your email using the link:")
 	println("http://localhost:8080/verify-email?token=" + verificationToken)
 
 	return nil
@@ -100,7 +99,6 @@ func (s *AuthService) Login(email, password string) (string, string, *models.Use
 }
 
 func (s *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
-
 	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
 		return []byte(s.jwtSecret), nil
 	})
@@ -124,7 +122,7 @@ func (s *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
 	newClaims := jwt.MapClaims{
 		"id":   user.ID,
 		"role": user.Role,
-		"exp":  time.Now().Add(time.Minute * 15).Unix(),
+		"exp":  time.Now().Add(15 * time.Minute).Unix(),
 	}
 
 	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
@@ -132,10 +130,9 @@ func (s *AuthService) RefreshAccessToken(refreshToken string) (string, error) {
 }
 
 func (s *AuthService) VerifyEmail(token string) error {
-
-	user, err := s.userRepo.FindByEmail(email)
-	if err != nil || user.ID == 0 {
-		return "", "", errors.New("invalid credentials")
+	user, err := s.userRepo.FindByVerificationToken(token)
+	if err != nil {
+		return errors.New("invalid or expired token")
 	}
 
 	user.IsVerified = true

@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"event-booking-backend/internal/services"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,7 +16,6 @@ func NewAuthController(service *services.AuthService) *AuthController {
 }
 
 func (c *AuthController) Signup(ctx *gin.Context) {
-
 	var body struct {
 		Name     string `json:"name"`
 		Email    string `json:"email"`
@@ -71,7 +69,6 @@ func (c *AuthController) Login(ctx *gin.Context) {
 }
 
 func (c *AuthController) Refresh(ctx *gin.Context) {
-
 	var body struct {
 		RefreshToken string `json:"refresh_token"`
 	}
@@ -93,7 +90,6 @@ func (c *AuthController) Refresh(ctx *gin.Context) {
 }
 
 func (c *AuthController) VerifyEmail(ctx *gin.Context) {
-
 	token := ctx.Query("token")
 	if token == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "token required"})

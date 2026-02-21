@@ -36,9 +36,14 @@ func (s *EventService) CreateEvent(
 	description string,
 	location string,
 	eventDate time.Time,
+	eventTime string,
 	category string,
 	seats int,
+	capacity int,
+	price float64,
+	organizer string,
 	bannerURL string,
+	status string,
 ) error {
 
 	if title == "" {
@@ -46,7 +51,15 @@ func (s *EventService) CreateEvent(
 	}
 
 	if seats <= 0 {
-		return errors.New("invalid seats")
+		return errors.New("invalid number of seats")
+	}
+
+	if capacity <= 0 {
+		capacity = seats
+	}
+
+	if status == "" {
+		status = models.EventAvailable
 	}
 
 	event := &models.Event{
@@ -54,17 +67,22 @@ func (s *EventService) CreateEvent(
 		Description:    description,
 		Location:       location,
 		EventDate:      eventDate,
+		EventTime:      eventTime,
 		Category:       category,
 		TotalSeats:     seats,
 		AvailableSeats: seats,
+		Capacity:       capacity,
+		Price:          price,
+		Organizer:      organizer,
 		BannerURL:      bannerURL,
-		Status:         models.EventAvailable,
+		Status:         status,
 	}
 
 	if err := s.repo.Create(event); err != nil {
 		return err
 	}
 
+	// auto-generate seats
 	rows := 5
 	cols := (seats + rows - 1) / rows
 
@@ -80,7 +98,6 @@ func (s *EventService) CreateEvent(
 func (s *EventService) GetAllEvents() ([]models.Event, error) {
 
 	cacheKey := "events_list"
-
 	ctx := context.Background()
 
 	cached, err := s.redis.Get(ctx, cacheKey).Result()
