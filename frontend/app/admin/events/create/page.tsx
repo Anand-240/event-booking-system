@@ -10,6 +10,7 @@ export default function CreateEventPage() {
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [category, setCategory] = useState("Music");
   const [seats, setSeats] = useState(50);
   const [bannerURL, setBannerURL] = useState("");
@@ -18,7 +19,7 @@ export default function CreateEventPage() {
   const handleCreate = async () => {
     setLoading(true);
 
-    const res = await fetch("http://localhost:8080/events", {
+    const res = await fetch("http://localhost:8080/admin/events", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -28,7 +29,7 @@ export default function CreateEventPage() {
         title,
         description,
         location,
-        date,           
+        date,
         category,
         seats,
         banner_url: bannerURL,
@@ -38,12 +39,13 @@ export default function CreateEventPage() {
     const data = await res.json();
     setLoading(false);
 
-    if (res.ok) {
-      alert("Event Created Successfully!");
-      router.push("/events");
-    } else {
+    if (!res.ok) {
       alert(data.error || "Failed to create event");
+      return;
     }
+
+    alert("Event created successfully!");
+    router.push("/events");
   };
 
   return (
@@ -51,6 +53,7 @@ export default function CreateEventPage() {
       <h1 className="text-3xl font-bold mb-8 text-center">Create New Event</h1>
 
       <div className="max-w-2xl mx-auto bg-white shadow-lg p-6 rounded-lg space-y-6">
+
         <input
           type="text"
           placeholder="Event Title"
@@ -74,12 +77,21 @@ export default function CreateEventPage() {
           onChange={(e) => setLocation(e.target.value)}
         />
 
-        <input
-          type="date"
-          className="border p-3 rounded w-full"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        <div className="flex gap-4">
+          <input
+            type="date"
+            className="border p-3 rounded w-1/2"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+
+          <input
+            type="time"
+            className="border p-3 rounded w-1/2"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
+        </div>
 
         <select
           className="border p-3 rounded w-full"
