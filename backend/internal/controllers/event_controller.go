@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"event-booking-backend/internal/services"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,18 +21,19 @@ func NewEventController(service *services.EventService) *EventController {
 func (c *EventController) CreateEvent(ctx *gin.Context) {
 
 	var body struct {
-		Title       string  `json:"title"`
-		Description string  `json:"description"`
-		Location    string  `json:"location"`
-		Date        string  `json:"date"`
-		Time        string  `json:"event_time"`
-		Category    string  `json:"category"`
-		Seats       int     `json:"seats"`
-		Capacity    int     `json:"capacity"`
-		Price       float64 `json:"price"`
-		Organizer   string  `json:"organizer"`
-		BannerURL   string  `json:"banner_url"`
-		Status      string  `json:"status"`
+		Title        string  `json:"title"`
+		Description  string  `json:"description"`
+		Location     string  `json:"location"`
+		Date         string  `json:"date"`
+		Time         string  `json:"event_time"`
+		DurationMins int     `json:"duration_mins"`
+		Category     string  `json:"category"`
+		Seats        int     `json:"seats"`
+		Capacity     int     `json:"capacity"`
+		Price        float64 `json:"price"`
+		Organizer    string  `json:"organizer"`
+		BannerURL    string  `json:"banner_url"`
+		Status       string  `json:"status"`
 	}
 
 	if err := ctx.ShouldBindJSON(&body); err != nil {
@@ -51,6 +53,7 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 		body.Location,
 		eventDate,
 		body.Time,
+		body.DurationMins,
 		body.Category,
 		body.Seats,
 		body.Capacity,

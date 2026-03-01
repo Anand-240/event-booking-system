@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"event-booking-backend/internal/models"
+
 	"gorm.io/gorm"
 )
 
@@ -19,13 +20,18 @@ func (r *BookingRepository) Create(booking *models.Booking) error {
 
 func (r *BookingRepository) FindByUserID(userID uint) ([]models.Booking, error) {
 	var bookings []models.Booking
-	err := r.DB.Preload("Event").Where("user_id = ?", userID).Find(&bookings).Error
+	err := r.DB.
+		Preload("Event").
+		Preload("Seats").
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Find(&bookings).Error
 	return bookings, err
 }
 
 func (r *BookingRepository) FindByID(id uint) (*models.Booking, error) {
 	var booking models.Booking
-	err := r.DB.First(&booking, id).Error
+	err := r.DB.Preload("Event").Preload("Seats").First(&booking, id).Error
 	return &booking, err
 }
 

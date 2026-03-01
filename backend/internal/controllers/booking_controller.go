@@ -10,11 +10,12 @@ import (
 )
 
 type BookingController struct {
-	service *services.BookingService
+	service         *services.BookingService
+	razorpayService *services.RazorpayService
 }
 
-func NewBookingController(service *services.BookingService) *BookingController {
-	return &BookingController{service: service}
+func NewBookingController(service *services.BookingService, razorpayService *services.RazorpayService) *BookingController {
+	return &BookingController{service: service, razorpayService: razorpayService}
 }
 
 func (c *BookingController) BookSeats(ctx *gin.Context) {
@@ -37,13 +38,31 @@ func (c *BookingController) BookSeats(ctx *gin.Context) {
 		return
 	}
 
-	err = c.service.BookSeats(userID, uint(eventID), body.Seats)
+	booking, err := c.service.BookSeats(userID, uint(eventID), body.Seats)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "seats booked successfully"})
+	rzpOrder, rzpErr := c.razorpayService.CreateOrder(booking.ID, booking.Amount)
+	if rzpErr != nil {
+		ctx.JSON(http.StatusOK, gin.H{
+			"booking_id":        booking.ID,
+			"amount":            booking.Amount,
+			"razorpay_order_id": "",
+			"razorpay_key":      "",
+			"razorpay_error":    rzpErr.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":           "seats booked, proceed to payment",
+		"booking_id":        booking.ID,
+		"amount":            booking.Amount,
+		"razorpay_order_id": rzpOrder.ID,
+		"razorpay_key":      rzpOrder.Key,
+	})
 }
 
 func (c *BookingController) MyBookings(ctx *gin.Context) {

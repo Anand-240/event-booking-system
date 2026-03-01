@@ -37,6 +37,7 @@ func (s *EventService) CreateEvent(
 	location string,
 	eventDate time.Time,
 	eventTime string,
+	durationMins int,
 	category string,
 	seats int,
 	capacity int,
@@ -68,6 +69,7 @@ func (s *EventService) CreateEvent(
 		Location:       location,
 		EventDate:      eventDate,
 		EventTime:      eventTime,
+		DurationMins:   durationMins,
 		Category:       category,
 		TotalSeats:     seats,
 		AvailableSeats: seats,
@@ -82,7 +84,6 @@ func (s *EventService) CreateEvent(
 		return err
 	}
 
-	// auto-generate seats
 	rows := 5
 	cols := (seats + rows - 1) / rows
 

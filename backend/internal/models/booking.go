@@ -9,13 +9,14 @@ type Booking struct {
 	Quantity  int       `gorm:"not null" json:"quantity"`
 	CreatedAt time.Time `json:"created_at"`
 
-	Status        string `gorm:"type:varchar(50);default:'pending_payment'" json:"status"`
-	PaymentStatus string `gorm:"type:varchar(50);default:'pending'" json:"payment_status"`
-	OrderID       string `gorm:"type:varchar(100)" json:"order_id"`
-	PaymentID     string `gorm:"type:varchar(100)" json:"payment_id"`
-	Amount        int    `gorm:"not null" json:"amount"`
+	Status          string `gorm:"type:varchar(50);default:'pending_payment'" json:"status"`
+	PaymentStatus   string `gorm:"type:varchar(50);default:'pending'" json:"payment_status"`
+	OrderID         string `gorm:"type:varchar(100)" json:"order_id"`
+	PaymentID       string `gorm:"type:varchar(100)" json:"payment_id"`
+	RazorpayOrderID string `gorm:"type:varchar(100)" json:"razorpay_order_id"`
+	Amount          int    `gorm:"not null" json:"amount"`
 
 	User  User   `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Event Event  `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Event Event  `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"event"`
 	Seats []Seat `gorm:"many2many:booking_seats;" json:"seats"`
 }

@@ -37,9 +37,15 @@ func NewBookingService(
 	}
 }
 
-func (s *BookingService) BookSeats(userID uint, eventID uint, seatNumbers []string) error {
+func (s *BookingService) BookSeats(userID uint, eventID uint, seatNumbers []string) (*models.Booking, error) {
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	if userID == 0 {
+		return nil, errors.New("authentication required: please log in again")
+	}
+
+	var resultBooking *models.Booking
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 
 		var event models.Event
 
@@ -89,9 +95,14 @@ func (s *BookingService) BookSeats(userID uint, eventID uint, seatNumbers []stri
 			event.Status = models.EventSoldOut
 		}
 
-		if err := tx.Save(&event).Error; err != nil {
+		if err := tx.Model(&event).Omit(clause.Associations).Updates(map[string]interface{}{
+			"available_seats": event.AvailableSeats,
+			"status":          event.Status,
+		}).Error; err != nil {
 			return err
 		}
+
+		amountPaise := int(event.Price*100) * len(seatNumbers)
 
 		booking := &models.Booking{
 			UserID:        userID,
@@ -100,23 +111,29 @@ func (s *BookingService) BookSeats(userID uint, eventID uint, seatNumbers []stri
 			Status:        models.StatusPendingPayment,
 			PaymentStatus: models.PaymentPending,
 			OrderID:       GenerateOrderID(),
-			Amount:        len(seatNumbers) * 500,
+			Amount:        amountPaise,
 		}
 
-		if err := tx.Create(&booking).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Create(&booking).Error; err != nil {
 			return err
 		}
 
 		for i := range seats {
 			seats[i].IsBooked = true
 			seats[i].BookingID = &booking.ID
-			if err := tx.Save(&seats[i]).Error; err != nil {
+			if err := tx.Model(&seats[i]).Omit(clause.Associations).Updates(map[string]interface{}{
+				"is_booked":  true,
+				"booking_id": &booking.ID,
+			}).Error; err != nil {
 				return err
 			}
 		}
 
+		resultBooking = booking
 		return nil
 	})
+
+	return resultBooking, err
 }
 
 func (s *BookingService) ConfirmPayment(bookingID uint) error {

@@ -20,7 +20,7 @@ func RateLimitPerUser(limit int, window time.Duration) gin.HandlerFunc {
 			return
 		}
 
-		userIDFloat := userIDRaw.(float64)
+		userIDFloat := userIDRaw.(uint)
 		userID := strconv.Itoa(int(userIDFloat))
 
 		key := "rate:user:" + userID

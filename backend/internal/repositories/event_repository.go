@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"event-booking-backend/internal/models"
+
 	"gorm.io/gorm"
 )
 
@@ -52,12 +53,12 @@ func (r *EventRepository) FindWithFilter(
 
 	query := r.DB.Model(&models.Event{})
 
-	// ----- Category Filter -----
+	query = query.Where("event_date >= CURRENT_DATE")
+
 	if category != "" && category != "all" {
 		query = query.Where("category = ?", category)
 	}
 
-	// ----- Search (title + location + category) -----
 	if search != "" {
 		searchLike := "%" + search + "%"
 		query = query.Where(

@@ -14,6 +14,7 @@ type Event struct {
 	Location       string    `json:"location"`
 	EventDate      time.Time `json:"event_date"`
 	EventTime      string    `json:"event_time"`
+	DurationMins   int       `json:"duration_mins"`
 	Category       string    `json:"category"`
 	TotalSeats     int       `json:"total_seats"`
 	AvailableSeats int       `json:"available_seats"`

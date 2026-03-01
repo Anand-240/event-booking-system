@@ -6,7 +6,6 @@ import (
 	"event-booking-backend/internal/config"
 	"event-booking-backend/internal/controllers"
 	"event-booking-backend/internal/middlewares"
-	"event-booking-backend/internal/models"
 	"event-booking-backend/internal/repositories"
 	"event-booking-backend/internal/services"
 
@@ -18,19 +17,10 @@ func main() {
 
 	db := config.ConnectDB()
 
-	db.AutoMigrate(
-		&models.Event{},
-		&models.User{},
-		&models.Booking{},
-		&models.Seat{},
-		&models.Waitlist{},
-		&models.Notification{},
-	)
-
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -58,8 +48,9 @@ func main() {
 
 	eventController := controllers.NewEventController(eventService)
 	authController := controllers.NewAuthController(authService)
-	bookingController := controllers.NewBookingController(bookingService)
-	paymentController := controllers.NewPaymentController(bookingRepo, eventRepo)
+	razorpayService := services.NewRazorpayService()
+	bookingController := controllers.NewBookingController(bookingService, razorpayService)
+	paymentController := controllers.NewPaymentController(bookingRepo, eventRepo, razorpayService)
 	seatController := controllers.NewSeatController(seatRepo)
 
 	r.POST("/signup", authController.Signup)
@@ -74,7 +65,7 @@ func main() {
 	protected := r.Group("/")
 	protected.Use(
 		middlewares.AuthMiddleware("SUPER_SECRET_KEY"),
-		middlewares.RateLimitPerUser(5, time.Minute),
+		middlewares.RateLimitPerUser(60, time.Minute),
 	)
 
 	admin := protected.Group("/admin")
@@ -91,6 +82,7 @@ func main() {
 	protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)
 	protected.POST("/bookings/:bookingID/confirm", bookingController.ConfirmPayment)
 	protected.POST("/bookings/:bookingID/refund", bookingController.RefundBooking)
+	protected.POST("/payments/verify", paymentController.VerifyPayment)
 
 	r.Run(":8080")
 }
