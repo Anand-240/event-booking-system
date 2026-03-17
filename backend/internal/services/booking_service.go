@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"math"
 
 	"event-booking-backend/internal/models"
 	"event-booking-backend/internal/repositories"
@@ -17,6 +18,20 @@ type BookingService struct {
 	waitlistRepo     *repositories.WaitlistRepository
 	notificationRepo *repositories.NotificationRepository
 	seatRepo         *repositories.SeatRepository
+}
+
+const (
+	platformFeePercent = 2
+	gstPercent         = 18
+)
+
+func calculateBookingAmountPaise(pricePerTicket float64, quantity int) int {
+	baseAmount := pricePerTicket * float64(quantity)
+	platformFee := math.Round((baseAmount * platformFeePercent) / 100)
+	gst := math.Round(((baseAmount + platformFee) * gstPercent) / 100)
+	totalAmount := baseAmount + platformFee + gst
+
+	return int(math.Round(totalAmount * 100))
 }
 
 func NewBookingService(
@@ -102,7 +117,7 @@ func (s *BookingService) BookSeats(userID uint, eventID uint, seatNumbers []stri
 			return err
 		}
 
-		amountPaise := int(event.Price*100) * len(seatNumbers)
+		amountPaise := calculateBookingAmountPaise(event.Price, len(seatNumbers))
 
 		booking := &models.Booking{
 			UserID:        userID,
@@ -165,6 +180,77 @@ func (s *BookingService) ConfirmPayment(bookingID uint) error {
 		}
 
 		return tx.Create(notification).Error
+	})
+}
+
+func (s *BookingService) ReleasePendingBooking(bookingID uint, userID uint) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var booking models.Booking
+
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Preload("Seats").
+			First(&booking, bookingID).Error; err != nil {
+			return errors.New("booking not found")
+		}
+
+		if booking.UserID != userID {
+			return errors.New("unauthorized")
+		}
+
+		if booking.Status == models.StatusCancelled && booking.PaymentStatus == models.PaymentFailed {
+			return nil
+		}
+
+		if booking.Status != models.StatusPendingPayment || booking.PaymentStatus != models.PaymentPending {
+			return errors.New("only pending payment bookings can be released")
+		}
+
+		var event models.Event
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&event, booking.EventID).Error; err != nil {
+			return err
+		}
+
+		for _, seat := range booking.Seats {
+			if err := tx.Model(&models.Seat{}).
+				Where("id = ? AND booking_id = ?", seat.ID, booking.ID).
+				Updates(map[string]interface{}{
+					"is_booked":  false,
+					"booking_id": nil,
+				}).Error; err != nil {
+				return err
+			}
+		}
+
+		event.AvailableSeats += booking.Quantity
+		if event.AvailableSeats > event.TotalSeats {
+			event.AvailableSeats = event.TotalSeats
+		}
+		if event.AvailableSeats > 0 {
+			event.Status = models.EventAvailable
+		}
+
+		if err := tx.Model(&event).Omit(clause.Associations).Updates(map[string]interface{}{
+			"available_seats": event.AvailableSeats,
+			"status":          event.Status,
+		}).Error; err != nil {
+			return err
+		}
+
+		booking.Status = models.StatusCancelled
+		booking.PaymentStatus = models.PaymentFailed
+
+		if err := tx.Model(&booking).Omit(clause.Associations).Updates(map[string]interface{}{
+			"status":         booking.Status,
+			"payment_status": booking.PaymentStatus,
+		}).Error; err != nil {
+			return err
+		}
+
+		return tx.Create(&models.Notification{
+			UserID:  booking.UserID,
+			Message: "Your pending booking was cancelled and seats were released.",
+		}).Error
 	})
 }
 
@@ -233,7 +319,7 @@ func (s *BookingService) CancelBooking(bookingID uint, userID uint) error {
 				Status:        models.StatusPendingPayment,
 				PaymentStatus: models.PaymentPending,
 				OrderID:       GenerateOrderID(),
-				Amount:        500,
+				Amount:        calculateBookingAmountPaise(event.Price, 1),
 			}
 
 			if err := tx.Save(&event).Error; err != nil {

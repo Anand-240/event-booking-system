@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { getEvent, bookSeats, simulatePayment } from "../../../../lib/api"
+import { bookSeats, cancelPendingPayment, getEvent, simulatePayment } from "../../../../lib/api"
+import { GST_PERCENT, PLATFORM_FEE_PERCENT, calculateBookingTotalRupees } from "../../../../lib/pricing"
 import { Event } from "../../../../types/event"
 
 declare global {
@@ -10,9 +11,6 @@ declare global {
     Razorpay: any
   }
 }
-
-const PLATFORM_FEE_PERCENT = 2
-const GST_PERCENT = 18
 
 export default function CheckoutPage() {
   const params = useParams()
@@ -24,6 +22,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState("")
+  const releasingBookingRef = useRef(false)
 
   useEffect(() => {
     const stored = sessionStorage.getItem("selected_seats")
@@ -46,11 +45,24 @@ export default function CheckoutPage() {
     )
   }
 
-  const baseAmount = selectedSeats.length * event.price
-  const platformFee = Math.round(baseAmount * PLATFORM_FEE_PERCENT / 100)
-  const gst = Math.round((baseAmount + platformFee) * GST_PERCENT / 100)
-  const totalAmount = baseAmount + platformFee + gst
+  const { baseAmount, platformFee, gst, totalAmount } = calculateBookingTotalRupees(
+    event.price,
+    selectedSeats.length
+  )
   const totalPaise = Math.round(totalAmount * 100)
+
+  const releasePendingSeats = async (bookingId: number | string) => {
+  if (releasingBookingRef.current) {
+    return
+  }
+
+  releasingBookingRef.current = true
+  try {
+    await cancelPendingPayment(bookingId)
+  } finally {
+    releasingBookingRef.current = false
+  }
+  }
 
   const handlePayment = async () => {
     const token = localStorage.getItem("access_token")
@@ -93,6 +105,7 @@ export default function CheckoutPage() {
         sessionStorage.removeItem("selected_seats")
         sessionStorage.setItem("last_booking_id", String(booking_id))
         sessionStorage.setItem("last_event_title", event.title)
+        sessionStorage.setItem("last_payment_amount", String(totalAmount))
         router.push(`/payment/success?booking_id=${booking_id}`)
         return
       }
@@ -134,6 +147,7 @@ export default function CheckoutPage() {
             sessionStorage.removeItem("selected_seats")
             sessionStorage.setItem("last_booking_id", String(booking_id))
             sessionStorage.setItem("last_event_title", event.title)
+            sessionStorage.setItem("last_payment_amount", String(totalAmount))
             router.push(`/payment/success?booking_id=${booking_id}`)
           } catch (e: any) {
             setError(e.message || "Payment verification failed")
@@ -141,7 +155,8 @@ export default function CheckoutPage() {
           }
         },
         modal: {
-          ondismiss: function () {
+          ondismiss: async function () {
+			await releasePendingSeats(booking_id)
             setPaying(false)
             setError("Payment cancelled")
           },
@@ -152,7 +167,8 @@ export default function CheckoutPage() {
       }
 
       const rzp = new window.Razorpay(options)
-      rzp.on("payment.failed", function (response: any) {
+      rzp.on("payment.failed", async function (response: any) {
+		await releasePendingSeats(booking_id)
         setError(`Payment failed: ${response.error.description}`)
         setPaying(false)
       })

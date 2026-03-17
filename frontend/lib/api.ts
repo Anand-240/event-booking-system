@@ -72,6 +72,31 @@ export async function getSeats(eventId: number | string) {
   return res.json()
 }
 
+export async function createAdminEvent(payload: {
+  title: string
+  description: string
+  location: string
+  date: string
+  event_time: string
+  duration_mins: number
+  category: string
+  seats: number
+  capacity: number
+  price: number
+  organizer: string
+  banner_url: string
+  status: string
+}) {
+  const res = await apiFetch("/admin/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+    body: JSON.stringify(payload),
+  })
+  const text = await res.text()
+  if (!text || text.trim() === "") return { error: "No response from server" }
+  try { return JSON.parse(text) } catch { return { error: text } }
+}
+
 export async function bookSeats(eventId: number | string, seats: string[]) {
   const res = await apiFetch(`/events/${eventId}/book-seats`, {
     method: "POST",
@@ -85,6 +110,16 @@ export async function bookSeats(eventId: number | string, seats: string[]) {
 
 export async function simulatePayment(bookingId: number | string) {
   const res = await apiFetch(`/bookings/${bookingId}/pay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+  })
+  const text = await res.text()
+  if (!text || text.trim() === "") return { error: "No response from server" }
+  try { return JSON.parse(text) } catch { return { error: text } }
+}
+
+export async function cancelPendingPayment(bookingId: number | string) {
+  const res = await apiFetch(`/bookings/${bookingId}/cancel-pending`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeader() },
   })

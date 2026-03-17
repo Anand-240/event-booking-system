@@ -8,5 +8,6 @@ const (
 
 	PaymentPending  = "pending"
 	PaymentPaid     = "paid"
+	PaymentFailed   = "failed"
 	PaymentRefunded = "refunded"
 )

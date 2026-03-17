@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
 import { getMyBookings } from "../../../lib/api"
+import { getDisplayedBookingAmountRupees } from "../../../lib/pricing"
 import { Booking } from "../../../types/booking"
 
 function isTicketExpired(eventDate: string, eventTime: string, durationMins: number): boolean {
@@ -57,6 +58,11 @@ function QRTicket({ booking }: { booking: Booking }) {
   })
 
   const seats = booking.seats?.map((s) => s.seat_number).join(", ") || `${booking.quantity} seat(s)`
+  const displayedAmount = getDisplayedBookingAmountRupees(
+    booking.amount,
+    booking.event.price,
+    booking.quantity
+  )
 
   return (
     <div
@@ -139,7 +145,7 @@ function QRTicket({ booking }: { booking: Booking }) {
           </div>
           <div>
             <span className="text-gray-500 font-medium">💰 Paid</span>
-            <p className="text-white font-semibold">₹{(booking.amount / 100).toLocaleString("en-IN")}</p>
+            <p className="text-white font-semibold">₹{displayedAmount.toLocaleString("en-IN")}</p>
           </div>
         </div>
       </div>

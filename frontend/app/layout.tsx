@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import { AuthProvider } from "../context/AuthContext";
 import Script from "next/script";
 
-const geistSans = Geist({
+const spaceGrotesk = Space_Grotesk({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
+const jetbrainsMono = JetBrains_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Event Booking",
-  description: "Event booking system",
+  title: "EventBook",
+  description: "Discover, manage, and book standout live experiences.",
 };
 
 export default function RootLayout({
@@ -33,10 +33,10 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-100`}>
+      <body className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}>
         <AuthProvider>
           <Navbar />
-          <main className="pt-6 px-4">{children}</main>
+          <main className="px-4 pt-6 pb-10">{children}</main>
         </AuthProvider>
       </body>
     </html>

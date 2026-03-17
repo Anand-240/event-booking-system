@@ -95,6 +95,24 @@ func (c *BookingController) ConfirmPayment(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "payment confirmed"})
 }
 
+func (c *BookingController) CancelPendingPayment(ctx *gin.Context) {
+	userID := ctx.GetUint("userID")
+
+	idParam := ctx.Param("bookingID")
+	bookingID, err := strconv.Atoi(idParam)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid booking id"})
+		return
+	}
+
+	if err := c.service.ReleasePendingBooking(uint(bookingID), userID); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "pending booking cancelled and seats released"})
+}
+
 func (c *BookingController) CancelBooking(ctx *gin.Context) {
 
 	userID := ctx.GetUint("userID")

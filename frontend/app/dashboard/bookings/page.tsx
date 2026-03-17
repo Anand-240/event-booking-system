@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { getMyBookings } from "../../../lib/api"
+import { getDisplayedBookingAmountRupees } from "../../../lib/pricing"
 import { Booking } from "../../../types/booking"
 
 const STATUS_STYLES: Record<string, string> = {
@@ -97,7 +98,14 @@ export default function BookingsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filtered.map((booking) => (
+            {filtered.map((booking) => {
+              const displayedAmount = getDisplayedBookingAmountRupees(
+                booking.amount,
+                booking.event.price,
+                booking.quantity
+              )
+
+              return (
               <div key={booking.id} className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-900/20 transition">
                 <div className="flex gap-4 p-5">
                   {/* Event Banner Thumbnail */}
@@ -140,7 +148,7 @@ export default function BookingsPage() {
                 {/* Footer */}
                 <div className="bg-gray-950/50 px-5 py-3 flex items-center justify-between text-xs text-gray-600 border-t border-white/5">
                   <span>Booking <span className="font-mono font-bold text-gray-400">#{booking.id}</span> · {new Date(booking.created_at).toLocaleDateString("en-IN")}</span>
-                  <span className="font-bold text-white">₹{(booking.amount / 100).toLocaleString("en-IN")}</span>
+                  <span className="font-bold text-white">₹{displayedAmount.toLocaleString("en-IN")}</span>
                 </div>
 
                 {/* Pending Payment CTA */}
@@ -156,7 +164,7 @@ export default function BookingsPage() {
                   </div>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

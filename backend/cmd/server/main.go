@@ -78,6 +78,7 @@ func main() {
 
 	protected.POST("/events/:id/book-seats", bookingController.BookSeats)
 	protected.GET("/my-bookings", bookingController.MyBookings)
+	protected.POST("/bookings/:bookingID/cancel-pending", bookingController.CancelPendingPayment)
 	protected.DELETE("/bookings/:bookingID", bookingController.CancelBooking)
 	protected.POST("/bookings/:bookingID/pay", paymentController.SimulatePayment)
 	protected.POST("/bookings/:bookingID/confirm", bookingController.ConfirmPayment)

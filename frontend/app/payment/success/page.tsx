@@ -1,20 +1,23 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const bookingId = searchParams.get("booking_id")
   const isSimulated = searchParams.get("simulated") === "true"
   const [eventTitle, setEventTitle] = useState("")
+  const [amountPaid, setAmountPaid] = useState<string | null>(null)
   const [countdown, setCountdown] = useState(8)
 
   useEffect(() => {
     const title = sessionStorage.getItem("last_event_title") || "your event"
+    const amount = sessionStorage.getItem("last_payment_amount")
     setEventTitle(title)
+    if (amount) setAmountPaid(Number(amount).toLocaleString("en-IN"))
 
     const timer = setInterval(() => {
       setCountdown((c) => {
@@ -34,7 +37,7 @@ export default function PaymentSuccessPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-linear-to-br from-green-50 via-white to-blue-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
         {/* Success Animation */}
         <div className="relative mx-auto w-28 h-28 mb-6">
@@ -59,6 +62,11 @@ export default function PaymentSuccessPage() {
 
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 my-6 text-left space-y-2">
           <p className="text-sm text-gray-600 flex items-center gap-2"><span>✅</span> Payment received</p>
+          {amountPaid && (
+            <p className="text-sm font-semibold text-green-700 flex items-center gap-2">
+              <span>💰</span> Amount paid: ₹{amountPaid} <span className="text-xs font-normal text-gray-400">(incl. platform fee & GST)</span>
+            </p>
+          )}
           <p className="text-sm text-gray-600 flex items-center gap-2"><span>🎫</span> Ticket saved to your Wallet</p>
           <p className="text-sm text-gray-600 flex items-center gap-2"><span>📱</span> QR code generated for entry</p>
           <p className="text-sm text-gray-600 flex items-center gap-2"><span>⏰</span> QR expires after event ends</p>
@@ -84,5 +92,19 @@ export default function PaymentSuccessPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-linear-to-br from-green-50 via-white to-blue-50 flex items-center justify-center px-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-green-500 border-t-transparent" />
+        </div>
+      }
+    >
+      <PaymentSuccessContent />
+    </Suspense>
   )
 }
